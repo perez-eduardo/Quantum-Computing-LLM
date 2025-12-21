@@ -1,4 +1,6 @@
 *.xml
+source/
+training/tokenizer
 
 # Virtual environment
 venv/
