@@ -54,7 +54,7 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, auto-wake from cold start |
 | Custom LLM | Trained transformer (~1.2M params) | Decoder-only, Chinchilla-optimal |
-| Training Data | ChatGPT Synthetic + Stack Exchange + books | ~15M tokens |
+| Training Data | Claude Q&A + Stack Exchange + Books | ~5M tokens |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
@@ -172,13 +172,34 @@ E:\Personal_projects\Quantum-Computing-LLM\
 
 ### Training Data Sources
 
-**Final Cleaned Data:**
+> **⚠️ MAJOR REVISION (December 22, 2025)**
+> 
+> ChatGPT synthetic Q&A data has been **abandoned**. Investigation revealed:
+> - 83% contained repetitive boilerplate phrases
+> - 59% were templated questions (only numbers changed)
+> - After all cleaning: 85,643 → 4,808 rows (94% garbage)
+> 
+> **Decision:** Replace with Claude-generated Q&A via chat sessions.
 
-| Source | Count | Type | Focus |
-|--------|-------|------|-------|
-| ChatGPT Synthetic | 85,643 pairs | Synthetic Q&A | Beginner-friendly concepts |
-| Stack Exchange QC | 10,662 pairs | Real Q&A | Mixed difficulty |
-| 5 Books | 633,562 words | Text | Foundational concepts |
+**Final Planned Data:**
+
+| Source | Count | Type | Status |
+|--------|-------|------|--------|
+| Claude Q&A (planned) | ~3,000 pairs | Semi-synthetic Q&A | ⬜ Pending |
+| Stack Exchange QC | 8,858 pairs | Real Q&A | ✅ Cleaned |
+| 5 Books (3x upsampled) | 11,493 chunks | Text | ✅ Ready |
+| **Total** | **~23,351** | | |
+
+**Claude Q&A Generation Plan:**
+
+| Parameter | Value |
+|-----------|-------|
+| Target | 3,000 beginner Q&A pairs |
+| Source material | 5 quantum computing textbooks |
+| Method | Semi-automated via Claude.ai chat |
+| Sessions | ~20 sessions (150 Q&A each) |
+| Difficulty | Beginner level |
+| Cost | $0 (Pro subscription) |
 
 **Books:**
 
@@ -194,12 +215,14 @@ E:\Personal_projects\Quantum-Computing-LLM\
 
 | Source | Estimated Tokens |
 |--------|------------------|
-| Q&A pairs (96,305) | ~14.2M |
-| Books (633K words) | ~0.8M |
-| **Total** | **~15M** |
+| Q&A pairs (~11,858) | ~1.8M |
+| Books 3x upsampled (11,493 chunks) | ~2.4M |
+| **Total** | **~4-5M** |
+
+**Note:** Token count reduced from original ~15M estimate after removing ChatGPT garbage data. Model may need architecture review for Chinchilla-optimal sizing.
 
 **Licensing:**
-- ChatGPT Synthetic: Self-generated
+- Claude Q&A: Self-generated via Pro subscription
 - Stack Exchange: Personal use only, no LLM distribution
 - Books: Educational/personal use only
 
@@ -486,5 +509,5 @@ These can be added later if needed.
 
 ---
 
-*Document version: 2.0*
-*Last updated: December 21, 2025*
+*Document version: 3.0*
+*Last updated: December 22, 2025*

@@ -1,6 +1,6 @@
 # Initial Exploratory Brainstorming: Next LLM Project Stack
 
-**Date:** December 20, 2025 (Updated December 21, 2025)
+**Date:** December 20, 2025 (Updated December 22, 2025)
 **Project:** Quantum Computing LLM  
 **Purpose:** Portfolio demonstration piece  
 **Expected Traffic:** Minimal (recruiters, students)
@@ -69,12 +69,60 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 
 ### Training Data
 
-| Source | Count | Tokens |
+> **⚠️ MAJOR REVISION (December 22, 2025)**
+> 
+> ChatGPT synthetic Q&A data has been **abandoned**. After extensive cleaning:
+> - 83% was boilerplate phrases
+> - 59% was templated repetitive questions (only numbers changed)
+> - After all cleaning: 85,643 → 4,808 rows (94% garbage)
+> 
+> **Decision:** Replace ChatGPT data with Claude-generated Q&A.
+
+#### Current Clean Data (Before Claude Q&A)
+
+| Source | Count | Status |
 |--------|-------|--------|
-| ChatGPT Synthetic Q&A | 85,643 pairs | ~12M |
-| Stack Exchange Q&A | 10,662 pairs | ~2.2M |
-| 5 Books | 633K words | ~0.8M |
-| **Total** | **96,305 pairs + books** | **~15M** |
+| ~~ChatGPT Synthetic Q&A~~ | ~~85,643 pairs~~ | ❌ ABANDONED (94% garbage) |
+| Stack Exchange Q&A | 8,858 pairs | ✅ Cleaned |
+| 5 Books (3x upsampled) | 11,493 chunks | ✅ Ready |
+| **Current Total** | **20,351** | Needs Q&A supplement |
+
+#### Claude Q&A Generation Plan
+
+| Parameter | Value |
+|-----------|-------|
+| Target | 3,000 beginner Q&A pairs |
+| Source material | 5 quantum computing textbooks |
+| Method | Semi-automated via Claude.ai chat |
+| Sessions | ~20 sessions (150 Q&A each) |
+| Difficulty | Beginner level |
+| Cost | $0 (Pro subscription) |
+
+**Book Sources for Q&A Generation:**
+
+| Book | Text File | Priority |
+|------|-----------|----------|
+| Quantum Computing for Everyone (Bernhardt) | bernhardt.txt | High (beginner) |
+| Quantum Computing Explained for Beginners | beginners.txt | High (beginner) |
+| Introduction to Classical and Quantum Computing (Wong) | wong.txt | Medium |
+| Quantum Computing: An Applied Approach (Hidary) | hidary.txt | Low (foundational only) |
+| Quantum Computation and Quantum Information (Nielsen & Chuang) | nielsen_chuang.txt | Low (foundational only) |
+
+**Process:**
+1. Upload book PDF to Claude.ai chat
+2. Use prompt template to generate 150 Q&A pairs per session
+3. Copy output to text file
+4. Run formatting script to combine into CSV
+5. Repeat for all books/chapters
+
+#### Final Dataset (After Claude Q&A)
+
+| Source | Count | Percent |
+|--------|-------|---------|
+| Claude Q&A (planned) | 3,000 | 12.8% |
+| Stack Exchange Q&A | 8,858 | 37.9% |
+| Books (3x upsampled) | 11,493 | 49.2% |
+| **Total** | **23,351** | 100% |
 
 ### Compute: Oregon State University HPC
 
@@ -133,13 +181,14 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 - [x] Finalize model size (1.2M parameters)
 - [x] Gather training data (quantum computing corpus)
-- [x] Clean and verify all data
+- [x] Clean Stack Exchange data (filtered >1024 tokens)
 - [x] Train custom tokenizer
-- [ ] Set up Python environment on HPC
-- [ ] Write training script
-- [ ] Create SLURM job script
-- [ ] Run training job
-- [ ] Save model weights
+- [x] Upsample books 3x
+- [x] Abandon ChatGPT data (94% garbage)
+- [ ] **Generate Claude Q&A (~3,000 pairs)**
+- [ ] Combine final dataset
+- [ ] Retrain with 10 epochs
+- [ ] Evaluate model
 - [ ] Integrate with RAG system
 
 ---
@@ -264,6 +313,14 @@ FastAPI serves the frontend as static files. Single service, single URL.
 - Originally planned as fallback
 - Removed to focus on custom model as portfolio centerpiece
 - Custom model handles all inference
+
+### ChatGPT API for Synthetic Q&A
+- **Status:** ABANDONED (December 22, 2025)
+- Generated 85,643 Q&A pairs
+- 83% contained repetitive boilerplate phrases
+- 59% were templated (only numbers changed)
+- After cleaning: only 4,808 usable (6%)
+- **Replaced with:** Claude-generated Q&A via chat
 
 ---
 
@@ -475,6 +532,7 @@ Even under sustained attack, costs cannot exceed your caps.
 6. **Consolidate where possible** - If you're paying for a service, use all its features (Railway handles both frontend and backend)
 7. **Set spending caps immediately** - Never deploy without hard limits on all paid services
 8. **Inspect data at every step** - Don't process garbage through your pipeline
+9. **Don't trust synthetic data blindly** - ChatGPT generated 94% garbage despite prompts
 
 ---
 
@@ -489,5 +547,5 @@ Even under sustained attack, costs cannot exceed your caps.
 
 ---
 
-*Document version: 2.0*
-*Last updated: December 21, 2025*
+*Document version: 3.0*
+*Last updated: December 22, 2025*

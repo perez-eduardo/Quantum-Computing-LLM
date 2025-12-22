@@ -35,9 +35,15 @@ def main():
     df = pd.read_csv(data_path)
     print(f"\nTotal rows: {len(df):,}")
     
+    # Detect column names dynamically
+    q_col = df.columns[0]
+    a_col = df.columns[1]
+    print(f"Question column: '{q_col}'")
+    print(f"Answer column: '{a_col}'")
+    
     # Normalize questions (replace numbers with placeholder)
     print("\nNormalizing questions (replacing numbers with <NUM>)...")
-    df['normalized'] = df['question'].apply(normalize_question)
+    df['normalized'] = df[q_col].apply(normalize_question)
     
     # Count occurrences of each normalized pattern
     pattern_counts = Counter(df['normalized'])
@@ -69,7 +75,7 @@ def main():
         print(f"\n{i:2}. [{count:,}x] {display}")
         
         # Show 2 actual examples
-        examples = df[df['normalized'] == pattern]['question'].head(2).tolist()
+        examples = df[df['normalized'] == pattern][q_col].head(2).tolist()
         for ex in examples:
             ex_display = ex[:70] + "..." if len(ex) > 70 else ex
             print(f"      Example: {ex_display}")
@@ -121,7 +127,7 @@ def main():
             f.write(f"{i}. [{count}x] {pattern}\n")
             
             # Include 3 examples for each
-            examples = df[df['normalized'] == pattern]['question'].head(3).tolist()
+            examples = df[df['normalized'] == pattern][q_col].head(3).tolist()
             for ex in examples:
                 f.write(f"   - {ex}\n")
             f.write("\n")
