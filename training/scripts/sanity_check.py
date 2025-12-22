@@ -79,7 +79,8 @@ def main():
     print("=" * 60)
     
     for i, q in enumerate(questions, 1):
-        prompt = f"Question: {q}\nAnswer:"
+        # FIXED: Use Q:/A: format to match training data
+        prompt = f"Q: {q}\nA:"
         print(f"\n[{i}/10] {q}")
         print("-" * 40)
         
@@ -101,8 +102,8 @@ def main():
         response = tokenizer.decode(output_ids[0].tolist())
         
         # Extract answer part
-        if "Answer:" in response:
-            answer = response.split("Answer:")[-1].strip()
+        if "A:" in response:
+            answer = response.split("A:")[-1].strip()
         else:
             answer = response
         

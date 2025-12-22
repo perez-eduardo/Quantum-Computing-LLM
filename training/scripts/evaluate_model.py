@@ -35,8 +35,9 @@ def load_tokenizer(path):
 
 
 def extract_answer(response):
-    if "Answer:" in response:
-        return response.split("Answer:")[-1].strip()
+    # FIXED: Use A: to match training format
+    if "A:" in response:
+        return response.split("A:")[-1].strip()
     return response.strip()
 
 
@@ -133,7 +134,8 @@ def main():
     difficulty_scores = {}
     
     for i, q in enumerate(questions, 1):
-        prompt = f"Question: {q['question']}\nAnswer:"
+        # FIXED: Use Q:/A: format to match training data
+        prompt = f"Q: {q['question']}\nA:"
         print(f"\n[{i}/{len(questions)}] {q['question'][:50]}...")
         
         # Encode and generate
