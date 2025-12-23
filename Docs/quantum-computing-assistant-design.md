@@ -7,6 +7,7 @@ Design specification for a web-based application that answers questions about fo
 **Related Documents:**
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
 - Implementation Plan: `implementation-plan.md`
+- Model Investigation Report: `model_investigation_report.md`
 
 **Disclaimer:** Model weights are private and not distributed. Training data used for educational/personal purposes only.
 
@@ -54,104 +55,10 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, auto-wake from cold start |
 | Custom LLM | Trained transformer (~1.2M params) | Decoder-only, Chinchilla-optimal |
-| Training Data | Claude Q&A + Stack Exchange + Books | ~5M tokens |
+| Training Data | Claude Q&A + Stack Exchange + Books | ~5.9M tokens |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
-
----
-
-## Project Directory Structure
-
-```
-E:\Personal_projects\Quantum-Computing-LLM\
-│
-├── venv/                           # Virtual environment
-│
-├── docs/                           # Documentation
-│   ├── quantum-computing-assistant-design.md
-│   ├── implementation-plan.md
-│   └── initial-exploratory-brainstorming.md
-│
-├── data/
-│   ├── raw/                        # Original and cleaned data
-│   │   ├── chatgpt_qa_cleaned.csv      # Intermediate (template prefixes removed)
-│   │   ├── chatgpt_qa_final.csv        # Final ChatGPT data (85,643 pairs)
-│   │   ├── stackexchange_qa.csv        # Original Stack Exchange
-│   │   ├── stackexchange_qa_cleaned.csv # Cleaned Stack Exchange (10,662 pairs)
-│   │   ├── combined_qa_final.csv       # All Q&A combined (96,305 pairs)
-│   │   └── books/
-│   │       ├── pdf/                    # Original PDFs
-│   │       │   ├── Introduction to Classical and Quantum Computing.pdf
-│   │       │   ├── Quantum Computation and Quantum Information - 10th Anniversary Edition.pdf
-│   │       │   ├── Quantum Computing An Applied Approach, Second edition.pdf
-│   │       │   ├── Quantum Computing Explained for Beginners.pdf
-│   │       │   └── Quantum Computing for Everyone.pdf
-│   │       ├── beginners.txt           # Raw extracted text
-│   │       ├── bernhardt.txt
-│   │       ├── hidary.txt
-│   │       ├── nielsen_chuang.txt
-│   │       ├── wong.txt
-│   │       └── cleaned/                # Cleaned book texts
-│   │           ├── beginners_cleaned.txt
-│   │           ├── bernhardt_cleaned.txt
-│   │           ├── hidary_cleaned.txt
-│   │           ├── nielsen_chuang_cleaned.txt
-│   │           ├── wong_cleaned.txt
-│   │           └── combined_books.txt  # All books combined (633K words)
-│   └── processed/                  # Generated artifacts (RAG chunks later)
-│
-├── training/
-│   ├── scripts/                    # Training and data processing scripts
-│   │   ├── train_tokenizer.py
-│   │   ├── inspect_data.py
-│   │   ├── inspect_stackexchange.py
-│   │   ├── inspect_book.py
-│   │   ├── clean_stackexchange.py
-│   │   ├── clean_book.py
-│   │   ├── clean_chatgpt_qa.py
-│   │   ├── clean_chatgpt_final.py
-│   │   ├── combine_qa.py
-│   │   └── extract_books.py
-│   ├── tokenizer/                  # Tokenizer output
-│   │   └── tokenizer.json          # Trained BPE tokenizer (16K vocab)
-│   └── model/                      # Model weights (after training)
-│
-├── backend/                        # FastAPI app (Phase 3)
-│
-└── frontend/                       # Single HTML page (Phase 4)
-```
-
----
-
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        User Query                           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Single HTML Frontend                      │
-│                   (hosted on Railway)                        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend                           │
-│       ┌─────────────┐         ┌─────────────┐               │
-│       │ RAG Pipeline │         │ Custom Model │               │
-│       │ (Voyage AI)  │         │ (~1.2M)      │               │
-│       └─────────────┘         └─────────────┘               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Neon PostgreSQL + pgvector                      │
-│                  (document chunks)                           │
-└─────────────────────────────────────────────────────────────┘
-```
 
 ---
 
@@ -162,44 +69,65 @@ E:\Personal_projects\Quantum-Computing-LLM\
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | Type | Decoder-only (GPT-style) | Standard for text generation |
-| Parameters | ~1.2M | Chinchilla-optimal for ~15M tokens |
+| Parameters | ~1.2M | Chinchilla-optimal for ~5.9M tokens |
 | Vocabulary size | 16,000 | Custom BPE trained on corpus |
 | Context length | 512 tokens | Sufficient for Q&A format |
 | Layers | 4 | Scaled for 1.2M params |
 | Attention heads | 4 | 16 dim per head |
 | Embedding dimension | 64 | Scaled for 1.2M params |
-| Token:param ratio | 12.5:1 | Near Chinchilla optimal (20:1) |
+| Token:param ratio | ~5:1 | Conservative for quality |
 
 ### Training Data Sources
 
-> **⚠️ MAJOR REVISION (December 22, 2025)**
+> **✅ DATA GENERATION COMPLETE (December 23, 2025)**
 > 
-> ChatGPT synthetic Q&A data has been **abandoned**. Investigation revealed:
-> - 83% contained repetitive boilerplate phrases
-> - 59% were templated questions (only numbers changed)
-> - After all cleaning: 85,643 → 4,808 rows (94% garbage)
-> 
-> **Decision:** Replace with Claude-generated Q&A via chat sessions.
+> - ChatGPT synthetic data was **abandoned** (94% garbage)
+> - Claude Q&A generation **complete**: 15,000 pairs across 38 batches
+> - Ready for dataset assembly and retraining
 
-**Final Planned Data:**
+**Final Dataset:**
 
-| Source | Count | Type | Status |
-|--------|-------|------|--------|
-| Claude Q&A (planned) | ~3,000 pairs | Semi-synthetic Q&A | ⬜ Pending |
-| Stack Exchange QC | 8,858 pairs | Real Q&A | ✅ Cleaned |
-| 5 Books (3x upsampled) | 11,493 chunks | Text | ✅ Ready |
-| **Total** | **~23,351** | | |
+| Source | Count | Est. Tokens | Status |
+|--------|-------|-------------|--------|
+| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
+| Stack Exchange QC | 8,858 pairs | ~1.2M | ✅ Cleaned |
+| 5 Books (3x upsampled) | 11,493 chunks | ~2.4M | ✅ Ready |
+| **Total** | **~35,351** | **~5.9M** | |
 
-**Claude Q&A Generation Plan:**
+### Claude Q&A Generation Details
 
 | Parameter | Value |
 |-----------|-------|
-| Target | 3,000 beginner Q&A pairs |
-| Source material | 5 quantum computing textbooks |
-| Method | Semi-automated via Claude.ai chat |
-| Sessions | ~20 sessions (150 Q&A each) |
-| Difficulty | Beginner level |
-| Cost | $0 (Pro subscription) |
+| Total pairs | **15,000** |
+| Batches | 38 (Phase 1: 25 × 400, Phase 2: 12 × 400 + 1 × 200) |
+| Unique questions | 15,000 (100%) |
+| Verification | 8-chunk per batch with index checking |
+| Output files | `claude_qa_batch[1-38].csv` |
+
+**Topics Covered (38 Batches):**
+
+**Phase 1 - Topic-Based (Batches 1-25):**
+| Batches | Topics |
+|---------|--------|
+| 1-5 | Fundamentals, Algorithms, Hardware, Error Correction, Chemistry |
+| 6-10 | ML, Cryptography, Complexity, Many-body, Topological |
+| 11-15 | Simulation, Annealing, Control, Metrology, Sensing |
+| 16-20 | Thermodynamics, Foundations, Optics, Superconducting, Communication |
+| 21-22 | Trapped Ion, Neutral Atom |
+| 23 | Photonic Quantum Computing |
+| 24 | Quantum Software and Programming |
+| 25 | Quantum Applications and Industry |
+
+**Phase 2 - Question Format-Based (Batches 26-38):**
+| Batches | Question Formats |
+|---------|------------------|
+| 26-27 | How/Why questions |
+| 28-29 | What-if, Troubleshooting |
+| 30-31 | Best practices, Definitions |
+| 32-33 | Conditional, Possibility questions |
+| 34-35 | Fact-checking, Choice questions |
+| 36-37 | Comparisons, Recommendations |
+| 38 | Mixed final questions |
 
 **Books:**
 
@@ -210,16 +138,6 @@ E:\Personal_projects\Quantum-Computing-LLM\
 | Quantum Computing Explained for Beginners | Pantheon Space Academy | 64,619 |
 | Quantum Computation and Quantum Information (10th Anniversary Ed.) | Nielsen & Chuang | 304,281 |
 | Quantum Computing: An Applied Approach (2nd ed.) | Jack D. Hidary | 111,642 |
-
-**Data Totals:**
-
-| Source | Estimated Tokens |
-|--------|------------------|
-| Q&A pairs (~11,858) | ~1.8M |
-| Books 3x upsampled (11,493 chunks) | ~2.4M |
-| **Total** | **~4-5M** |
-
-**Note:** Token count reduced from original ~15M estimate after removing ChatGPT garbage data. Model may need architecture review for Chinchilla-optimal sizing.
 
 **Licensing:**
 - Claude Q&A: Self-generated via Pro subscription
@@ -245,25 +163,13 @@ Why custom over GPT-2 tokenizer:
 | `<eos>` | 1 | End of sequence |
 | `<unk>` | 2 | Unknown token fallback |
 
-#### Efficient Domain Tokens (learned naturally)
-
-These terms became efficient single tokens during training:
-- `qubit` (ID 246)
-- `qubits` (ID 287)
-- `superposition` (ID 777)
-- `entanglement` (ID 1649)
-- `Hadamard` (ID 1756)
-- `CNOT` (ID 1502)
-- `gate` (ID 430)
-
-### HPC Environment
+### Training Infrastructure
 
 | Resource | Details |
 |----------|---------|
-| Host | submit-b.hpc.engr.oregonstate.edu |
-| Username | pereze4 |
-| Scheduler | SLURM |
-| Recommended partition | dgxh (16x H100-40GB per node) |
+| HPC | Oregon State University |
+| GPU | NVIDIA H100 80GB |
+| Partition | dgxh (4-hour limit) |
 | Alternative partition | dgx2 (16x V100, 7-day limit) |
 | Storage | 1.5 TB HPC share quota |
 
@@ -276,18 +182,6 @@ These terms became efficient single tokens during training:
 | Training | Validation loss + perplexity | Monitor training, catch overfitting |
 | Quality | QC test set (50-100 questions) | Measure actual capability |
 | Portfolio | Examples + honest limitations | Demonstrate understanding |
-
-#### QC Test Set
-
-Create 50-100 test questions covering core concepts:
-
-| Category | Example Question | Expected Keywords |
-|----------|------------------|-------------------|
-| Basics | What is a qubit? | "quantum bit", "superposition", "0 and 1" |
-| Basics | How is a qubit different from a bit? | "superposition", "both states" |
-| Entanglement | What is entanglement? | "correlated", "measuring one affects other" |
-| Gates | What does a Hadamard gate do? | "superposition", "equal probability" |
-| Applications | Why is quantum computing useful? | "certain problems faster", "simulation", "cryptography" |
 
 ---
 
@@ -315,13 +209,24 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 
 ### Data Sources
 
-RAG uses books for retrieval (cleaner, more coherent chunks than Q&A pairs):
+RAG retrieves from the same 5 books used in training, but with different chunking:
 
-- Introduction to Classical and Quantum Computing (Wong)
-- Quantum Computing for Everyone (Bernhardt)
-- Quantum Computing Explained for Beginners
-- Quantum Computation and Quantum Information (Nielsen & Chuang)
-- Quantum Computing: An Applied Approach (Hidary)
+| Book | Author |
+|------|--------|
+| Introduction to Classical and Quantum Computing | Wong |
+| Quantum Computing for Everyone | Bernhardt |
+| Quantum Computing Explained for Beginners | Pantheon Space Academy |
+| Quantum Computation and Quantum Information | Nielsen & Chuang |
+| Quantum Computing: An Applied Approach | Hidary |
+
+**Why books serve dual purpose (training + RAG):**
+
+| Use | Chunking Strategy | Purpose |
+|-----|-------------------|---------|
+| Training | CLM chunks, 3x upsampled with offset | Teaches vocabulary and patterns |
+| RAG | ~500 token semantic chunks with overlap | Provides specific facts at query time |
+
+This is not redundant. Training and RAG serve complementary roles: training teaches the model how to speak about quantum computing, while RAG injects specific knowledge the small model couldn't memorize.
 
 ---
 
@@ -385,15 +290,6 @@ Response:
 }
 ```
 
-### Error Handling
-
-| Scenario | Response |
-|----------|----------|
-| Model inference failure | 500 + error message |
-| Database connection error | 503 + "Service temporarily unavailable" |
-| No relevant chunks found | 200 + answer with disclaimer |
-| Rate limit hit | 429 + "Rate limit exceeded" |
-
 ---
 
 ## UI Design
@@ -408,32 +304,6 @@ Single HTML page with minimal design. Self-contained (no framework dependencies)
 | Input area | Text input for questions |
 | Response area | Model's answer with sources |
 | Footer | Disclaimer, portfolio link |
-
-### Wireframe
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Quantum Computing Assistant                                 │
-│  Powered by a custom-trained 1.2M parameter transformer      │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ Ask a question about quantum computing...              │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                              [ Ask ]         │
-│                                                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Answer:                                                     │
-│  ─────────────────────────────────────────────────────────  │
-│  [Response appears here]                                     │
-│                                                              │
-│  Sources: [expandable]                                       │
-│                                                              │
-├─────────────────────────────────────────────────────────────┤
-│  For educational purposes only. | GitHub | Portfolio         │
-└─────────────────────────────────────────────────────────────┘
-```
 
 ### Style Direction
 
@@ -509,5 +379,5 @@ These can be added later if needed.
 
 ---
 
-*Document version: 3.0*
-*Last updated: December 22, 2025*
+*Document version: 6.0*
+*Last updated: December 24, 2025*

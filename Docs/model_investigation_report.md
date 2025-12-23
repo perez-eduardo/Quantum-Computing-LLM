@@ -1,7 +1,14 @@
 # Model Investigation Report
 
 **Date:** December 21, 2025
+**Updated:** December 23, 2025
 **Purpose:** Document findings before deciding on retraining strategy
+
+> **✅ FINAL OUTCOME (December 23, 2025)**
+> 
+> - ChatGPT data was 94% garbage → **Abandoned**
+> - Claude Q&A generation **COMPLETE**: 15,000 pairs across 38 batches
+> - Ready for dataset assembly and retraining
 
 ---
 
@@ -146,65 +153,16 @@
 - 88.5% of data uses less than 128
 - Wasted capacity? Or fine since padding is ignored?
 
-### Issue 5: Repetitive Boilerplate in Training Data (NEW)
+### Issue 5: Repetitive Boilerplate in Training Data
 - Model memorized template phrases from ChatGPT synthetic data
 - Every answer ends with "In fault-tolerant settings..." or similar
 - Model does pattern completion, not Q&A reasoning
-- Need to inspect and possibly clean ChatGPT data
 
 ---
 
 ## Checkpoint Comparison Results
 
 Tested epochs 1, 3, and 6 (from cancelled job that ran 6 epochs).
-
-### Epoch 1 Output (Worst)
-```
-Q: What is a qubit?
-A: In quantum computing, probabilities of coherence, gate speed, connectivity, and engineering interference.
-
-Q: What is entanglement?
-A: I can be the state is a state. In
-
-Q: How is a qubit different from a classical bit?
-A: |0\rangle, \left_{1\rangle}
-\rangle \frac{1\rangle) for the circuit, with other state, and $
-```
-- Broken LaTeX
-- Incomplete sentences
-- Barely coherent fragments
-
-### Epoch 3 Output (Better)
-```
-Q: What is a CNOT gate?
-A: CNOT flips the target qubit if the control is |1⟩; it is widely used to create entanglement and implement parity checks. If the device lacks a direct interaction needed, compilation may add routing (SWAPs) and express it in native gates, increasing depth and error.
-```
-- More complete sentences
-- Some answers almost correct
-- Still rambles with boilerplate
-
-### Epoch 6 Output (Best)
-```
-Q: What is a qubit?
-A: A qubit is the Bloch sphere that becomes visible through interference. In fault-tolerant settings, limited connectivity can force extra SWAP routing.
-
-Q: What is a CNOT gate?
-A: CNOT flips the target qubit if the control is |1⟩; it is widely used to create entanglement and implement parity checks. For intuition, think of it as a rotation/phase action on the Bloch sphere that becomes visible through interference.
-```
-- Cleaner output
-- CNOT answer is actually good
-- Still appends irrelevant boilerplate
-
-### Key Finding: Repetitive Boilerplate
-
-Almost every answer contains one of these phrases:
-- "In fault-tolerant settings..."
-- "In practical workflows..."
-- "In NISQ experiments..."
-- "Don't confuse this with classical parallelism..."
-- "...error mitigation may reduce bias but doesn't fully protect quantum information"
-
-**Likely cause:** Synthetic ChatGPT training data used templates/boilerplate that the model memorized.
 
 ### Checkpoint Comparison Summary
 
@@ -218,201 +176,122 @@ Almost every answer contains one of these phrases:
 
 ---
 
-## Truncated Examples Analysis
-
-### Summary
-- **5,290 examples (5.5%)** exceed 512 token limit
-- **100% from Stack Exchange** (none from ChatGPT)
-
-### Truncation Severity
-| Tokens Over Limit | Count | Percent |
-|-------------------|-------|---------|
-| 1-100 | 1,120 | 21.2% |
-| 101-500 | 2,489 | 47.1% |
-| 501-1000 | 1,103 | 20.9% |
-| 1001-5000 | 569 | 10.8% |
-| 5000+ | 9 | 0.2% |
-
-### Content Analysis
-- **31.1%** contain code blocks
-- Average tokens over limit: 467
-- **31.8% severely truncated** (>500 tokens cut)
-
-### What Gets Truncated
-Examples are mostly garbage:
-- Code dumps (Qiskit circuits, installation logs)
-- Configuration outputs (JSON, package lists)
-- Long stack traces
-- Raw data printouts
-
-Model sees question + start of answer, but the actual solution gets cut off.
-
-### Recommendation
-Filter out examples >1024 tokens before training. They provide confusing signal (partial answers with no conclusion).
-
----
-
-## Short Examples Analysis
-
-### Summary
-- **29.9% very short** (<50 tokens): 28,823 examples
-- **59.1% short** (50-128 tokens): 56,918 examples
-- **88% of data is under 128 tokens**
-
-### Source Breakdown
-| Category | ChatGPT | Stack Exchange |
-|----------|---------|----------------|
-| Very short | 100% | 0% |
-| Short | 99.6% | 0.4% |
-
-### Quality Issue: Templated Repetitive Examples
-
-The "very short" examples are templated garbage with only numbers changed:
-
-```
-Q: Why does the state space grow exponentially with 198 qubits?
-A: Because each additional qubit doubles the dimension... 2^198 basis states
-
-Q: Why does the state space grow exponentially with 319 qubits?
-A: Because each additional qubit doubles the dimension... 2^319 basis states
-
-Q: Why does the state space grow exponentially with 294 qubits?
-A: Because each additional qubit doubles the dimension... 2^294 basis states
-```
-
-Same templates repeated hundreds of times:
-- "Why does the state space grow exponentially with X qubits?"
-- "How many complex amplitudes describe a generic X-qubit pure state?"
-- "How many basis states are there for X qubits?"
-
-Model is memorizing templates, not learning concepts.
-
-### Recommendation
-Filter out templated repetitive examples. Identify templates and keep only 1-2 examples of each pattern instead of hundreds.
-
----
-
-## Book Data Contribution
-
-### Summary
-- **980,964 book tokens** across 5 textbooks
-- **3,830 book chunks** (512 tokens, stride 256)
-- **3.8% of training examples** (25:1 ratio Q&A to book)
-
-### Token Contribution
-| Source | Tokens | Percent |
-|--------|--------|---------|
-| Q&A (est) | 7,314,620 | 88.2% |
-| Books | 980,964 | 11.8% |
-
-### Book Sources
-1. Quantum Computing Explained for Beginners (Pantheon Space Academy)
-2. Quantum Computing for Everyone (Chris Bernhardt, MIT Press)
-3. Quantum Computing: An Applied Approach (Jack Hidary)
-4. Quantum Computation and Quantum Information (Nielsen & Chuang)
-5. Introduction to Classical and Quantum Computing (Thomas Wong)
-
-### Content Quality
-- 72,789 lines
-- 23% short lines (<20 chars) - likely headers, equations
-- 0.1% math notation lines
-
-### Recommendation
-Book data is drowned out at 3.8%. Filtering Q&A templates will naturally improve balance. No need to upsample books.
-
----
-
 ## Summary of Issues Found
 
 | Issue | Severity | Action |
 |-------|----------|--------|
-| Boilerplate in 83% of ChatGPT data | ✅ Fixed | Cleaned, 0% remaining |
-| 5.5% truncated examples (code dumps) | High | Filter >1024 tokens |
-| 30% templated repetitive examples | High | Deduplicate templates |
-| Book data only 3.8% | Medium | Will improve after Q&A filtering |
-| Undertrained (3 epochs) | Medium | Increase to 10 epochs |
-
-## Recommended Actions
-
-1. Filter examples >1024 tokens
-2. Deduplicate templated Q&A examples
-3. Retrain with cleaned data, 10 epochs
+| Boilerplate in 83% of ChatGPT data | Critical | ❌ Data abandoned |
+| 59% templated repetitive examples | Critical | ❌ Data abandoned |
+| 5.5% truncated examples (code dumps) | High | ✅ Filtered from Stack Exchange |
+| Book data only 3.8% | Medium | ✅ Upsampled 3x |
+| Undertrained (3 epochs) | Medium | Planned: 10 epochs |
 
 ---
 
-## Data Cleaning Performed
+## Final Decision (December 22, 2025)
 
-### Boilerplate Analysis Results
-- **83.4%** of ChatGPT answers contained boilerplate
-- **65.9%** had 2+ boilerplate phrases
-- Common patterns appended to answers:
-  - "In fault-tolerant settings, [boilerplate]"
-  - "In practical workflows, [boilerplate]"
-  - "In NISQ experiments, [boilerplate]"
-  - "In many tutorials, [boilerplate]"
-  - "In simulators, [boilerplate]"
-  - "On real devices, [boilerplate]"
+### Decision: Abandon ChatGPT Data
 
-### Cleaning Action
-Ran `clean_boilerplate.py` to strip boilerplate phrases from answers.
+The ChatGPT synthetic Q&A data is unsalvageable:
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Total rows | 85,643 | 85,583 |
-| With boilerplate | 71,427 (83.4%) | 7 (0.0%) |
-| Removed (too short) | - | 60 |
+| Finding | Value |
+|---------|-------|
+| Templated questions (only numbers changed) | **59%** |
+| Boilerplate phrases | 83% |
+| Usable rows after all cleaning | **4,808 of 85,643** |
+| **Garbage rate** | **94%** |
 
-### New Combined Dataset
-- File: `combined_qa_final_v2.csv` (replaced old on HPC)
-- Total rows: 96,245
-- Estimated tokens: ~12.4M (down from ~14.2M)
-- Boilerplate remaining: 7/96,245 (0.0%)
+---
+
+## New Data Strategy
+
+### Claude Q&A Generation - COMPLETE ✅
+
+**Completed:** December 23, 2025
+
+| Metric | Value |
+|--------|-------|
+| Total Q&A pairs | **15,000** |
+| Batches | 38 (Phase 1: 25 × 400, Phase 2: 12 × 400 + 1 × 200) |
+| Unique questions | 15,000 (100%) |
+| Duplicates fixed | ~250 across all batches |
+| Generation method | 8-chunk verification per batch |
+| Output files | `claude_qa_batch[1-38].csv` |
+
+**Topics Covered (38 Batches):**
+
+**Phase 1 - Topic-Based (Batches 1-25):**
+| Batch | Topic |
+|-------|-------|
+| 1-5 | Fundamentals, Algorithms, Hardware, Error Correction, Chemistry |
+| 6-10 | ML, Cryptography, Complexity, Many-body, Topological |
+| 11-15 | Simulation, Annealing, Control, Metrology, Sensing |
+| 16-20 | Thermodynamics, Foundations, Optics, Superconducting, Communication |
+| 21-22 | Trapped Ion, Neutral Atom |
+| 23 | Photonic Quantum Computing |
+| 24 | Quantum Software and Programming |
+| 25 | Quantum Applications and Industry |
+
+**Phase 2 - Question Format-Based (Batches 26-38):**
+| Batch | Question Format |
+|-------|-----------------|
+| 26 | "What/How does X work" (mechanisms) |
+| 27 | "Why" questions (reasoning and causes) |
+| 28 | "What happens when/if" (consequences) |
+| 29 | Troubleshooting and problem-solving |
+| 30 | Best practices and recommendations |
+| 31 | Definitions and explanations |
+| 32 | "When/What if" conditional questions |
+| 33 | "Can/Could" possibility questions |
+| 34 | "Is it true that" fact-checking |
+| 35 | "Which" choice and selection |
+| 36 | Comparisons (X vs Y) |
+| 37 | "Should I" recommendations |
+| 38 | Mixed final questions |
+
+### Final Dataset Composition
+
+| Source | Count | Est. Tokens | Status |
+|--------|-------|-------------|--------|
+| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
+| Stack Exchange | 8,858 pairs | ~1.2M | ✅ Ready |
+| Books (3x upsampled) | 11,493 chunks | ~2.4M | ✅ Ready |
+| **Total** | **~35,351** | **~5.9M** | |
 
 ---
 
 ## Next Steps
 
-1. ~~Compare checkpoint outputs (epoch 1 vs 2 vs 3)~~ ✅ Done
-2. ~~Inspect ChatGPT training data for boilerplate patterns~~ ✅ Done
-3. ~~Clean boilerplate from training data~~ ✅ Done
-4. ~~Upload cleaned data to HPC~~ ✅ Done
-5. Filter truncated examples (>1024 tokens)
-6. Deduplicate templated examples
-7. Retrain model with clean data
+1. ✅ Clean Stack Exchange data (filtered >1024 tokens)
+2. ✅ Upsample book data 3x
+3. ✅ Generate Claude Q&A (15,000 pairs)
+4. ⬜ Combine final dataset (~35,351 examples)
+5. ⬜ Retrain tokenizer on new corpus
+6. ⬜ Retrain model with 10 epochs
+7. ⬜ Evaluate model
 
----
-
-## Consolidated Recommendations
-
-### Data Cleaning (Before Retraining)
-
-| Action | Reason | Est. Rows Affected |
-|--------|--------|-------------------|
-| ✅ Remove boilerplate | Model memorized templates | 71,427 cleaned |
-| Filter >1024 tokens | Truncated garbage (code dumps, logs) | ~1,700 removed |
-| Deduplicate templates | Same Q with different numbers | ~20,000+ removed |
-
-### Training Hyperparameters
+### Training Hyperparameters (Planned)
 
 | Parameter | Old | New | Reason |
 |-----------|-----|-----|--------|
-| Epochs | 3 | 10 | Loss still dropping at epoch 3, checkpoint 6 much better |
+| Epochs | 3 | 10 | Loss still dropping at epoch 3 |
 | Min LR | 3e-5 | 1e-5 | Allow finer convergence |
 | Warmup ratio | 0.1 | 0.05 | Shorter warmup, more training at peak LR |
 
-### Expected Outcome After Cleaning
+---
 
-| Metric | Before | After (Est.) |
-|--------|--------|--------------|
-| Total Q&A rows | 96,245 | ~70,000 |
-| Templated examples | ~30% | <5% |
-| Truncated garbage | 5.5% | 0% |
-| Book data ratio | 3.8% | ~5.5% |
-| Boilerplate | 83.4% | 0% |
+## Lessons Learned
 
-### Priority Order
+1. **Don't trust synthetic data blindly.** ChatGPT generated 94% garbage despite careful prompting.
+2. **Inspect data at every step.** Initial "clean" data had massive hidden issues.
+3. **Template detection requires statistical analysis.** 30% estimate was off by 2x.
+4. **Boilerplate removal alone is insufficient.** Underlying data quality matters more.
+5. **Sometimes it's better to start fresh.** Salvaging bad data wastes time.
+6. **Chunk-based generation with verification works.** 8-chunk batches with incremental duplicate checking caught issues early.
+7. **Index-based duplicate detection scales.** Maintaining a questions index enabled cross-batch duplicate detection.
+8. **Diverse question formats improve coverage.** Supplementing topic-based with format-based questions creates more natural variety.
 
-1. **Filter >1024 tokens** (easy, clear cut)
-2. **Deduplicate templates** (harder, need to identify patterns)
-3. **Retrain with 10 epochs**
-4. **Evaluate and iterate**
+---
+
+*Document version: 4.0*
+*Last updated: December 23, 2025*
