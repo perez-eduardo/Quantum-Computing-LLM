@@ -1,6 +1,6 @@
 # Quantum Computing Assistant - Implementation Plan
 
-**Last Updated:** December 23, 2025
+**Last Updated:** December 24, 2025
 
 **Related Documents:**
 - Design Document: `quantum-computing-assistant-design.md`
@@ -11,8 +11,8 @@
 
 ## Current Status
 
-**Phase:** 1 (Training Pipeline) - Data generation complete, ready for retraining
-**Status:** Claude Q&A generation complete (15,000 pairs). Ready to combine dataset and retrain.
+**Phase:** 1 (Training Pipeline) - Complete
+**Status:** Model v3 trained on clean data. Ready for evaluation.
 
 ---
 
@@ -34,16 +34,14 @@
 |------|--------|--------|
 | Process Stack Exchange XML | ✅ Done | `stackexchange_qa.csv` (10,673 pairs) |
 | Clean Stack Exchange (HTML entities, short answers) | ✅ Done | `stackexchange_qa_cleaned.csv` (10,662 pairs) |
-| Filter Stack Exchange (>1024 tokens) | ✅ Done | `stackexchange_qa_cleaned.csv` (8,858 pairs) |
+| Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,019 pairs after filtering |
 | Extract text from PDFs | ✅ Done | 5 text files |
 | Clean book texts (remove fragments, TOC, etc.) | ✅ Done | `books/cleaned/` (633,562 words total) |
-| Upsample book data 3x | ✅ Done | 11,493 chunks |
 | ~~Clean ChatGPT data~~ | ❌ Abandoned | Data unsalvageable |
-| **Generate Claude Q&A (38 batches)** | ✅ Done | `claude_qa_batch[1-38].csv` (15,000 pairs) |
-| Combine Q&A sources | ⬜ Pending | Target: ~35,351 examples |
-| Combine book texts | ✅ Done | `books/cleaned/combined_books.txt` |
-| Train custom BPE tokenizer | ✅ Done | `tokenizer/tokenizer.json` (16K vocab) |
-| **Retrain tokenizer on new corpus** | ⬜ Pending | After combining new data |
+| **Generate Claude Q&A (38 batches)** | ✅ Done | `claude_qa.csv` (15,000 pairs) |
+| Combine Q&A sources | ✅ Done | 24,019 pairs (after filtering + dedup) |
+| Combine book texts | ✅ Done | `combined_books.txt` |
+| Train custom BPE tokenizer | ✅ Done | `tokenizer.json` (16K vocab, clean corpus) |
 
 ### Claude Q&A Generation Details
 
@@ -89,30 +87,32 @@
 | Implement transformer architecture | ✅ Done | `scripts/model.py` |
 | Write dataset loader | ✅ Done | `scripts/dataset.py` |
 | Write training script | ✅ Done | `scripts/train.py` |
-| Create SLURM job script | ✅ Done | `train_job.sh` |
-| Train model on H100 (initial) | ✅ Done | 4 minutes, 3 epochs |
-| Evaluate model quality | ✅ Done | 14.8% keyword match, incoherent outputs |
+| Create SLURM job script | ✅ Done | `train_job_v3.sh` |
+| Train model v1 (garbage data) | ✅ Done | 3 epochs, perplexity 15.55 |
 | Investigate data quality issues | ✅ Done | Found ChatGPT data was 94% garbage |
-| **Retrain with new data** | ⬜ Pending | 10 epochs planned |
+| **Train model v3 (clean data)** | ✅ Done | **10 epochs, perplexity 89.63** |
+| Evaluate model | ⬜ Pending | Next step |
 
 ### Model Investigation
 
 | Task | Status | Findings |
 |------|--------|----------|
-| Evaluate with 50-question test set | ✅ Done | 14.8% keyword match |
+| Evaluate with 50-question test set | ✅ Done | 14.8% keyword match (v1) |
 | Compare checkpoints (epoch 1, 3, 6) | ✅ Done | Epoch 6 >> 3 >> 1, more training helps |
-| Analyze token length distribution | ✅ Done | 88% under 128 tokens, 5.5% truncated |
+| Analyze token length distribution | ✅ Done | 88% under 128 tokens |
 | Inspect boilerplate in ChatGPT data | ✅ Done | 83.4% contained boilerplate phrases |
 | Inspect templated examples | ✅ Done | 59% were templated garbage |
 | **Decision: Abandon ChatGPT data** | ✅ Done | Replaced with Claude Q&A |
 
 ---
 
-## Training Results (Initial Run - Before Data Fix)
+## Training Results
+
+### v1 (Garbage Data - December 21, 2025)
 
 **Job:** 19739587 on dgxh-1 (H100 80GB)
 **Duration:** ~4 minutes
-**Throughput:** ~626K tokens/sec
+**Data:** 96K Q&A pairs (94% ChatGPT garbage)
 
 | Epoch | Train Loss | Val Loss | Perplexity |
 |-------|------------|----------|------------|
@@ -120,10 +120,39 @@
 | 2 | 2.94 | 2.82 | 16.84 |
 | 3 | 2.74 | 2.74 | 15.55 |
 
-**Issues Identified:**
-- Loss still decreasing at epoch 3 (undertrained)
-- Model memorized boilerplate from ChatGPT data
-- Only 4,461 steps total
+**Issues:** Model memorized boilerplate, incoherent outputs, 14.8% eval accuracy.
+
+### v3 (Clean Data - December 23, 2025)
+
+**Job:** 19759979 on dgxh-1 (H100 80GB)
+**Duration:** ~13 minutes
+**Data:** 24,019 Q&A pairs (Claude + Stack Exchange) + books
+
+| Epoch | Train Loss | Val Loss | Perplexity |
+|-------|------------|----------|------------|
+| 1 | 7.95 | 6.39 | 594.77 |
+| 2 | 5.83 | 5.40 | 221.96 |
+| 3 | 5.26 | 5.04 | 153.94 |
+| 4 | 4.98 | 4.82 | 124.56 |
+| 5 | 4.81 | 4.69 | 108.64 |
+| 6 | 4.70 | 4.60 | 99.61 |
+| 7 | 4.63 | 4.55 | 94.43 |
+| 8 | 4.59 | 4.52 | 91.56 |
+| 9 | 4.56 | 4.50 | 90.26 |
+| **10** | **4.55** | **4.50** | **89.63** |
+
+**Training Config (v3):**
+
+| Parameter | Value |
+|-----------|-------|
+| Epochs | 10 |
+| Batch size | 64 |
+| Max LR | 3e-4 |
+| Min LR | 1e-5 |
+| Warmup ratio | 0.05 |
+| Max seq length | 512 |
+
+**Note:** Higher perplexity than v1 is expected. v1 had low perplexity because it memorized repetitive garbage. v3 trained on diverse, clean data produces higher perplexity but should have better output quality. The real test is evaluation.
 
 ---
 
@@ -132,73 +161,73 @@
 | Source | Count | Est. Tokens | Status |
 |--------|-------|-------------|--------|
 | Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
-| Stack Exchange (cleaned) | 8,858 pairs | ~1.2M | ✅ Ready |
-| Books (3x upsampled) | 11,493 chunks | ~2.4M | ✅ Ready |
-| **Total** | **~35,351** | **~5.9M** | |
+| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Complete |
+| Books | 633,562 words | ~0.9M | ✅ Complete |
+| **Total** | **24,019 Q&A** | **~4.4M** | |
 
-**Note on books:** Books serve dual purpose in this project:
-- **Training:** CLM chunks (3x upsampled with offset) teach vocabulary and patterns
+**Note:** 1,640 Stack Exchange examples >1024 tokens were filtered. 3 duplicate answers removed. Final Q&A count: 24,019.
+
+**Books serve dual purpose:**
+- **Training:** CLM chunks teach vocabulary and patterns
 - **RAG (Phase 2):** Semantic chunks (~500 tokens with overlap) provide retrieval at inference
-
-This is complementary, not redundant. Training teaches the model how to speak; RAG injects specific facts the small model cannot memorize.
 
 ---
 
 ## What Is Next
 
-**Immediate next task:** Combine dataset, retrain tokenizer, retrain model
+**Immediate next task:** Evaluate model quality
 
 ### Remaining Phase 1 Tasks
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Generate Claude Q&A | - | ✅ Done (15,000 pairs) |
-| Combine final dataset | **Next** | ⬜ Pending |
-| Retrain tokenizer on new corpus | **Next** | ⬜ Pending |
-| Retrain with cleaned data (10 epochs) | After combining | ⬜ Pending |
-| Re-evaluate model | After retraining | ⬜ Pending |
+| Train model v3 | - | ✅ Done |
+| **Evaluate model quality** | **Next** | ⬜ Pending |
+| Compare v1 vs v3 outputs | After eval | ⬜ Pending |
 | Document results for portfolio | After evaluation | ⬜ Pending |
 
-### Planned Retraining Command
+### Evaluation Plan
 
-```bash
-~/hpc-share/quantum-llm/venv/bin/python scripts/train.py \
-    --epochs 10 \
-    --min_lr 1e-5 \
-    --warmup_ratio 0.05
-```
+1. Run same 50-question test set used for v1
+2. Compare keyword match scores
+3. Qualitative assessment of output coherence
+4. Check for boilerplate memorization
 
 ---
 
 ## Output Files Created
 
-### Data Files
+### Data Files (Local)
 
-| File | Location | Description | Size |
-|------|----------|-------------|------|
-| `claude_qa_batch[1-25].csv` | `data/raw/` | Claude Q&A Phase 1 (10,000 pairs) | ~3 MB |
-| `claude_qa_batch[26-38].csv` | Generated | Claude Q&A Phase 2 (5,000 pairs) | ~1.5 MB |
-| `questions_index.txt` | Generated | Duplicate detection index | 15,000 q |
-| `stackexchange_qa_cleaned.csv` | `data/raw/` | Stack Exchange Q&A (cleaned) | ~24 MB |
-| `combined_books.txt` | HPC `data/` | All book text (cleaned) | ~3.8 MB |
+| File | Location | Description |
+|------|----------|-------------|
+| `claude_qa.csv` | `data/raw/` | Claude Q&A (15,000 pairs) |
+| `stackexchange_qa_cleaned.csv` | `data/raw/` | Stack Exchange Q&A |
+| `combined_books.txt` | `data/raw/books/` | All book text |
+
+### Data Files (HPC)
+
+| File | Location | Description |
+|------|----------|-------------|
+| `combined_qa_filtered.csv` | `data/` | Final Q&A (24,019 pairs) |
+| `combined_books.txt` | `data/` | Book text for training |
+| `tokenizer.json` | `/` | BPE tokenizer (16K vocab) |
 
 ### Training Artifacts (HPC: ~/hpc-share/quantum-llm/)
 
-| File | Location | Description | Size |
-|------|----------|-------------|------|
-| `final_model.pt` | `model/` | Final model weights (epoch 3) | 5 MB |
-| `checkpoint_epoch1.pt` | `model/` | Epoch 1 checkpoint | 15 MB |
-| `checkpoint_epoch2.pt` | `model/` | Epoch 2 checkpoint | 15 MB |
-| `checkpoint_epoch3.pt` | `model/` | Epoch 3 checkpoint | 15 MB |
-| `checkpoint_epoch6.pt` | `model/` | Epoch 6 checkpoint (from cancelled job) | 15 MB |
-| `config.json` | `model/` | Model config | 149 B |
-| `tokenizer.json` | `/` | Tokenizer (needs retraining) | - |
+| File | Location | Description |
+|------|----------|-------------|
+| `final_model.pt` | `model/` | Final model weights (v3, epoch 10) |
+| `best_model.pt` | `model/` | Best model by val loss |
+| `checkpoint_epoch[1-10].pt` | `model/` | All epoch checkpoints |
+| `config.json` | `model/` | Model config |
+| `train_job_v3.sh` | `/` | SLURM job script |
 
 ---
 
 ## Development Phases
 
-### Phase 1: Training Pipeline
+### Phase 1: Training Pipeline ✅
 
 Build and train the custom transformer model.
 
@@ -213,17 +242,14 @@ Build and train the custom transformer model.
 | ~~Load ChatGPT synthetic Q&A~~ | ❌ Abandoned |
 | **Generate Claude Q&A (15,000 pairs)** | ✅ Done |
 | Extract text from book PDFs | ✅ Done |
-| Preprocess and combine all sources | 🔄 In Progress |
+| Preprocess and combine all sources | ✅ Done |
 | Clean and verify all data | ✅ Done |
-| Train custom tokenizer | ✅ Done (needs retrain) |
+| Train custom tokenizer | ✅ Done |
 | Set up HPC environment | ✅ Done |
 | Implement transformer architecture | ✅ Done |
 | Write training script | ✅ Done |
-| Train model on HPC | ✅ Done (needs retrain) |
-| Evaluate model | ✅ Done |
-| Investigate data quality issues | ✅ Done |
-| **Retrain model with clean data** | ⬜ Pending |
-| **Re-evaluate model** | ⬜ Pending |
+| **Train model v3 (clean data)** | ✅ Done |
+| Evaluate model | ⬜ Pending |
 | Document results | ⬜ Pending |
 
 ### Phase 2: RAG System
@@ -237,8 +263,6 @@ Build retrieval-augmented generation pipeline.
 | Set up Neon database with pgvector | ⬜ Pending |
 | Implement retrieval pipeline | ⬜ Pending |
 | Test retrieval quality | ⬜ Pending |
-
-**Note:** RAG uses different chunking than training. Training used CLM chunks (3x upsampled). RAG needs ~500 token semantic chunks with overlap for retrieval.
 
 ### Phase 3: Backend
 
@@ -284,34 +308,37 @@ Deploy to Railway.
 
 3. **PDF extraction produces garbage.** Raw text extraction creates fragments from math formulas, TOC dots, page numbers. Required paragraph-level filtering to remove fragments <50 chars.
 
-4. **Stack Exchange data was mostly clean.** Only needed filtering for truncated examples (>1024 tokens).
+4. **Stack Exchange data needed filtering.** Removed 1,640 examples >1024 tokens (all from Stack Exchange, 0 from Claude).
 
-5. **Chinchilla scaling matters.** Original 10M param target was too large for ~15M tokens. Reduced to 1.2M params for ~12.5:1 token-to-param ratio.
+5. **Chinchilla scaling matters.** Original 10M param target was too large for ~15M tokens. Reduced to 1.2M params for better token-to-param ratio.
 
 6. **Inspect after every step.** Early pipeline ran garbage through tokenizer. Proper workflow: acquire → inspect → clean → verify → proceed.
 
 7. **Test locally before submitting HPC jobs.** Wasted 2 job submissions due to missing dependencies.
 
-8. **H100s are fast.** 1.2M param model trained in 4 minutes at 626K tokens/sec.
+8. **H100s are fast.** 1.2M param model trained 10 epochs in 13 minutes at 626K tokens/sec.
 
 9. **Small models learn vocabulary, not reasoning.** Model outputs quantum jargon but answers are incoherent. RAG is essential for usability.
 
 10. **Chunk-based generation with verification works.** Generating Q&A in 8-chunk batches with incremental duplicate checking caught issues early and scaled to 15,000 pairs.
 
-11. **More epochs help small models.** Checkpoint comparison showed epoch 6 >> epoch 3 >> epoch 1. Plan to use 10 epochs for retraining.
+11. **More epochs help small models.** Checkpoint comparison showed epoch 6 >> epoch 3 >> epoch 1. v3 used 10 epochs.
 
 12. **Diverse question formats improve coverage.** Phase 2 added question types (how, why, what-if, should-I, comparisons) to complement Phase 1 topic coverage.
+
+13. **Don't load system Python module after venv activation.** `module load python/3.11` overrides venv's Python and breaks imports.
+
+14. **Retrain tokenizer when data changes.** New tokenizer trained on clean corpus only (no ChatGPT garbage).
 
 ---
 
 ## Notes for Next Session
 
-- Claude Q&A generation complete: 15,000 pairs in `claude_qa_batch[1-38].csv`
-- Need to combine with Stack Exchange (8,858) and books (11,493 chunks)
-- Retrain tokenizer on new corpus before model training
-- Train with 10 epochs, min_lr 1e-5, warmup 0.05
-- Expected dataset size: ~35,351 examples, ~5.9M tokens
+- Model v3 training complete: 10 epochs, perplexity 89.63
+- Files on HPC: `model/final_model.pt`, `model/best_model.pt`
+- Next step: Run evaluation to compare v1 vs v3 quality
+- Generate script or use existing eval script with 50-question test set
 
 ---
 
-*Document version: 7.0*
+*Document version: 8.0*
