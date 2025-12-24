@@ -26,9 +26,11 @@ Need a stack that is:
 This project combines two components:
 
 1. **Custom Transformer** (trained from scratch) for portfolio demonstration
-2. **RAG System** to supplement the small model's limited knowledge
+2. **RAG System** to supplement the model's knowledge
 
-The custom transformer shows recruiters you understand ML internals. RAG compensates for the small model's limitations by retrieving relevant documents.
+The custom transformer shows recruiters you understand ML internals. RAG provides relevant context at inference time.
+
+**CRITICAL UPDATE (December 24):** Model must be trained with context-aware format to actually USE the RAG context. Plain Q&A training format cannot leverage retrieved content.
 
 ---
 
@@ -37,7 +39,7 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
 | **Frontend + Backend** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Custom)** | Your trained transformer | $0 | ~1.2M params, trained on HPC |
+| **LLM (Custom)** | Your trained transformer | $0 | 50M-100M params, context-aware |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
 | **Training Compute** | Oregon State HPC | $0 | H100 GPUs available |
@@ -55,36 +57,63 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 - Create a "fully yours" component for the portfolio
 - Combined with RAG for actual usefulness
 
-### Architecture
+### Architecture (UPDATED)
 
-| Parameter | Value |
-|-----------|-------|
-| Type | Decoder-only (GPT-style) |
-| Size | ~1.2M parameters |
-| Layers | 4 |
-| Attention heads | 4 |
-| Embedding dimension | 64 |
-| Vocabulary | 16,000 (custom BPE) |
-| Context length | 512 tokens |
+| Parameter | Original | Updated |
+|-----------|----------|---------|
+| Type | Decoder-only (GPT-style) | Same |
+| Size | ~1.2M parameters | **50M-100M parameters** |
+| Layers | 4 | TBD |
+| Attention heads | 4 | TBD |
+| Embedding dimension | 64 | TBD |
+| Vocabulary | 16,000 (custom BPE) | Same |
+| Context length | 512 tokens | Same |
+
+**Why larger model:** 1.2M params cannot generate coherent sentences. Produces quantum jargon but gibberish structure. 50M-100M needed for readable output.
+
+### Training Format (CRITICAL UPDATE)
+
+**Old format (broken):**
+```
+Q: What is superposition?
+A: Superposition allows...
+```
+
+**New format (context-aware):**
+```
+Context:
+Q: What is entanglement?
+A: Entanglement correlates two qubits...
+
+Q: What is a qubit?
+A: A qubit is the basic unit...
+
+Question: What is superposition?
+Answer: Superposition allows a qubit to be in multiple states...
+```
+
+Model learns: given context + question, generate answer.
 
 ### Training Data
 
-#### v4 Dataset (Final)
+#### Context-Format Dataset (NEW)
 
-| Source | Count | Status |
-|--------|-------|--------|
-| Claude Q&A | 15,000 pairs | ✅ Complete |
-| Stack Exchange (filtered) | 9,008 pairs | ✅ Complete |
-| CoT Reasoning Dataset | 2,756 pairs | ✅ Complete |
-| **Total** | **26,764 Q&A** | ✅ Complete |
+| Source | Rows | Context Type |
+|--------|------|--------------|
+| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
+| stackexchange_qa_context.csv | 10,673 | Tags + question body |
+| claude_qa_batch1-38_context.csv | 15,000 | Template-based |
+| **Total** | **28,671** | |
 
-### Training Results
+### Training Results (Pre-Redesign)
 
-| Version | Data | Perplexity | Eval Score |
-|---------|------|------------|------------|
-| v1 | 96K (garbage) | 15.55 | 14.8% |
-| v3 | 24K (clean) | 89.63 | 16.4% |
-| v4 | 26,764 (expanded) | 91.80 | 11.4% |
+| Version | Data | Perplexity | Eval Score | Issue |
+|---------|------|------------|------------|-------|
+| v1 | 96K (garbage) | 15.55 | 14.8% | ChatGPT garbage |
+| v3 | 24K (clean) | 89.63 | 16.4% | Plain format |
+| v4 | 26,764 | 91.80 | 11.4% | Plain format, cannot use context |
+
+**v5 (pending):** Context-aware format, 50M-100M params
 
 ### Compute: Oregon State University HPC
 
@@ -98,27 +127,23 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 | Home Storage | 25 GB |
 | HPC Share | 1.5 TB quota |
 
-**Connect from Windows PowerShell:**
-```powershell
-ssh pereze4@submit-b.hpc.engr.oregonstate.edu
-```
-
 ### Training Checklist
 
-- [x] Finalize model size (1.2M parameters)
+- [x] Finalize model size (1.2M parameters) - OUTDATED
 - [x] Gather training data (quantum computing corpus)
 - [x] Clean Stack Exchange data (filtered >1024 tokens)
 - [x] Train custom tokenizer
 - [x] Abandon ChatGPT data (94% garbage)
 - [x] Generate Claude Q&A (15,000 pairs)
-- [x] Obtain CoT Reasoning Dataset (2,756 pairs)
-- [x] Combine v4 dataset (26,764 pairs)
-- [x] Train model v4
-- [x] Evaluate model v4
-- [x] Download model files
+- [x] Obtain CoT Reasoning Dataset (2,998 pairs)
+- [x] Train model v4 (plain format)
 - [x] Set up RAG system
 - [x] Embed Q&A pairs (26,764)
 - [x] Test retrieval quality (94%)
+- [x] **Add context to all datasets**
+- [ ] **Update model architecture (50M-100M)**
+- [ ] **Generate context-format training data**
+- [ ] **Retrain model v5 (context-aware)**
 - [ ] Connect RAG to model
 - [ ] End-to-end testing
 
@@ -141,10 +166,6 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 - Without card: only 3 requests/minute (unusable)
 - With card: 2000 RPM, still uses free tokens
 
-**Cost protection:**
-- Prepaid $5 credits with auto-recharge OFF
-- Acts as hard spending cap
-
 ---
 
 ### Database: Neon Free Tier
@@ -158,12 +179,7 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 
 **Current usage:**
 - 26,764 Q&A embeddings stored
-- Near storage limit (required removing book chunks)
-
-**Cold start behavior:**
-- Suspends after 5 minutes of inactivity
-- Cold start latency: ~500ms-1 second
-- Auto-wakes on first connection
+- Near storage limit
 
 ---
 
@@ -171,14 +187,7 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 
 **Cost:** $5/month (includes $5 usage credit)
 
-**Architecture:**
-```
-/your-project
-  /frontend    (Single HTML page)
-  /backend     (FastAPI)
-```
-
-FastAPI serves the frontend as static files. Single service, single URL.
+50M-100M parameter model is ~100-200MB. Still fits Railway deployment.
 
 ---
 
@@ -197,9 +206,6 @@ FastAPI serves the frontend as static files. Single service, single URL.
 | Content | Count |
 |---------|-------|
 | Q&A embeddings | 26,764 |
-| Book chunks | 0 (removed) |
-
-**Why book chunks removed:** Q&A pairs have actual definitions. Book chunks mentioned terms without defining them, causing retrieval failures.
 
 ---
 
@@ -208,27 +214,19 @@ FastAPI serves the frontend as static files. Single service, single URL.
 ### ChatGPT API for Synthetic Q&A
 - **Status:** ABANDONED (December 22, 2025)
 - Generated 85,643 Q&A pairs
-- 83% contained repetitive boilerplate phrases
+- 83% contained repetitive boilerplate
 - 59% were templated (only numbers changed)
-- After cleaning: only 4,808 usable (6%)
 - **Replaced with:** Claude-generated Q&A via chat
 
-### Hybrid Search (BM25 + Semantic)
-- **Status:** SKIPPED (December 24, 2025)
-- Would improve retrieval from 94% to ~96-97%
-- Requires tsvector column and GIN index
-- Neon storage limit (512MB) exceeded
-- 94% is sufficient for portfolio project
+### Groq as Primary LLM
+- **Status:** REJECTED (December 24, 2025)
+- User requirement: Custom model must work, not just fallback
+- Groq would make custom model pointless
 
-### Google AI Studio (LLM + Embeddings)
-- **Status:** Gutted in December 2025
-- Gemini 2.5 Pro removed from free tier
-- Unreliable for production use
-
-### Supabase (Database)
-- Pauses after 7 days of inactivity
-- Requires manual restart
-- Bad for portfolio with sporadic traffic
+### Plain Q&A Training Format
+- **Status:** ABANDONED (December 24, 2025)
+- Model cannot use RAG context if not trained on context format
+- Must retrain with context-aware format
 
 ---
 
@@ -254,9 +252,10 @@ FastAPI serves the frontend as static files. Single service, single URL.
 6. **Verify after training** - Run boilerplate and quality checks on outputs
 7. **Q&A pairs beat book chunks for RAG** - Definitions > mentions
 8. **94% retrieval is good enough** - Diminishing returns on further optimization
-9. **Storage limits matter** - Neon 512MB constrains what you can store
+9. **Training format must match inference format** - Plain Q&A model cannot use context
+10. **Small models cannot generate coherent text** - 1.2M params = gibberish, need 50M+
 
 ---
 
-*Document version: 6.0*
+*Document version: 7.0*
 *Last updated: December 24, 2025*

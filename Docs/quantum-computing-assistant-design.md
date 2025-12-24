@@ -23,8 +23,6 @@ This project proves ability to:
 - Train on real HPC hardware
 - Deploy end-to-end ML system
 
-The app itself is secondary. Recruiters evaluate the code, architecture decisions, and documentation.
-
 **Target Audience:** Recruiters evaluating ML skills, students curious about quantum computing
 
 ---
@@ -33,13 +31,53 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 
 | Component | Status |
 |-----------|--------|
-| Custom Model | ✅ Trained (v4) |
+| Custom Model (v4) | ⚠️ Cannot use context (needs retraining) |
+| Context-Format Data | ✅ Complete (28,671 rows) |
 | RAG System | ✅ Complete (94% retrieval) |
-| Backend | ⬜ In Progress |
+| Backend | ⬜ Blocked (awaiting model) |
 | Frontend | ⬜ Pending |
 | Deployment | ⬜ Pending |
 
-**Next Action:** Connect RAG retrieval to model for end-to-end testing
+**Next Action:** Retrain model with context-aware format (50M-100M params)
+
+---
+
+## CRITICAL: Design Flaw & Resolution
+
+### Problem Discovered (December 24, 2025)
+
+The v4 model was trained on plain Q&A format but RAG provides context at inference:
+
+**Training format (v4):**
+```
+Q: What is superposition?
+A: Superposition allows...
+```
+
+**Inference format (with RAG):**
+```
+Context: [retrieved Q&A pairs]
+Question: What is superposition?
+```
+
+**Result:** Model ignores context entirely - never learned the format.
+
+### Resolution
+
+1. **Retrain with context-aware format:**
+```
+Context:
+Q: What is entanglement?
+A: Entanglement correlates two qubits...
+
+Q: What is a qubit?
+A: A qubit is the basic unit...
+
+Question: What is superposition?
+Answer: Superposition allows a qubit to be in multiple states...
+```
+
+2. **Scale to 50M-100M parameters** (1.2M cannot generate coherent text)
 
 ---
 
@@ -68,8 +106,8 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Frontend | Single HTML page | Minimal, self-contained |
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, 26,764 Q&A embeddings |
-| Custom LLM | Trained transformer (~1.2M params) | Decoder-only, v4 |
-| Training Data | Claude Q&A + Stack Exchange + CoT | 26,764 pairs |
+| Custom LLM | Trained transformer | **50M-100M params, context-aware** |
+| Training Data | Context-format Q&A | 28,671 pairs |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
@@ -78,39 +116,48 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 
 ## Custom Transformer Model
 
-### Architecture
+### Architecture (UPDATED)
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| Type | Decoder-only (GPT-style) | Standard for text generation |
-| Parameters | ~1.2M | Chinchilla-optimal for dataset |
-| Vocabulary size | 16,000 | Custom BPE trained on corpus |
-| Context length | 512 tokens | Sufficient for Q&A format |
-| Layers | 4 | Scaled for 1.2M params |
-| Attention heads | 4 | 16 dim per head |
-| Embedding dimension | 64 | Scaled for 1.2M params |
+| Parameter | v4 (Broken) | v5 (Planned) |
+|-----------|-------------|--------------|
+| Type | Decoder-only | Decoder-only |
+| Parameters | ~1.2M | **50M-100M** |
+| Vocabulary size | 16,000 | 16,000 |
+| Context length | 512 tokens | 512 tokens |
+| Layers | 4 | TBD |
+| Attention heads | 4 | TBD |
+| Embedding dimension | 64 | TBD |
+| Training format | Plain Q&A | **Context-aware** |
 
-### Training Status: ✅ Complete
+### Training Status
 
-### Training Data (v4)
+| Version | Status | Issue |
+|---------|--------|-------|
+| v1 | ❌ Abandoned | ChatGPT garbage data |
+| v3 | ❌ Abandoned | Plain format |
+| v4 | ❌ Abandoned | Plain format, cannot use context |
+| v5 | ⬜ Pending | Context-aware, 50M-100M params |
 
-| Source | Count | Status |
-|--------|-------|--------|
-| Claude Q&A | 15,000 pairs | ✅ Complete |
-| Stack Exchange (filtered) | 9,008 pairs | ✅ Complete |
-| CoT Reasoning Dataset | 2,756 pairs | ✅ Complete |
-| **Total** | **26,764 Q&A** | ✅ Complete |
+### Training Data (Context-Format)
 
-### Training Results
+| Source | Rows | Context Type |
+|--------|------|--------------|
+| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
+| stackexchange_qa_context.csv | 10,673 | Tags + question body |
+| claude_qa_batch1-38_context.csv | 15,000 | Template-based |
+| **Total** | **28,671** | |
 
-| Version | Data | Perplexity | Eval Score |
-|---------|------|------------|------------|
-| v1 | 96K (garbage) | 15.55 | 14.8% |
-| v3 | 24K (clean) | 89.63 | 16.4% |
-| **v4** | **26,764** | **91.80** | **11.4%** |
+### Training Results (v1-v4, Pre-Redesign)
 
-### Model Files (Local)
+| Version | Data | Perplexity | Eval Score | Problem |
+|---------|------|------------|------------|---------|
+| v1 | 96K (garbage) | 15.55 | 14.8% | Garbage data |
+| v3 | 24K (clean) | 89.63 | 16.4% | Plain format |
+| v4 | 26,764 | 91.80 | 11.4% | Plain format |
 
+### Model Files
+
+**v4 files (OUTDATED - cannot use context):**
 | File | Location |
 |------|----------|
 | `final_model.pt` | `training/model/` |
@@ -136,9 +183,9 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 
 ### Purpose
 
-The custom 1.2M parameter model has limited knowledge capacity. RAG compensates by retrieving relevant Q&A pairs at query time.
+The custom model has limited knowledge capacity. RAG retrieves relevant Q&A pairs at query time as context.
 
-**Key insight from training:** Small models learn vocabulary, not reasoning. The model outputs quantum terminology but answers are incoherent. RAG provides the actual knowledge at inference time.
+**Critical requirement:** Model must be trained on context-aware format to actually USE the retrieved content.
 
 ### Database Contents
 
@@ -148,8 +195,6 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 | stackexchange | 9,008 |
 | cot_reasoning | 2,756 |
 | **Total** | **26,764** |
-
-**Note:** Book chunks were removed. Q&A pairs provide better retrieval because they contain actual definitions rather than mentions.
 
 ### Embedding Configuration
 
@@ -168,17 +213,9 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 | Pass rate | 94% |
 | Failures | 6 (data gaps, semantic edge cases) |
 
-### Search Strategy
-
-| Method | Details |
-|--------|---------|
-| Primary | Semantic search (pgvector cosine similarity) |
-| Top-k | 3-5 chunks |
-| Hybrid | Skipped (storage limit) |
-
 ---
 
-## Inference Pipeline
+## Inference Pipeline (Updated)
 
 ```
 1. User sends question
@@ -190,10 +227,20 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 3. Retrieve top-k relevant Q&A pairs (pgvector)
               │
               ▼
-4. Build prompt with context
+4. Build context-aware prompt:
+   
+   Context:
+   Q: [retrieved pair 1]
+   A: [answer 1]
+   
+   Q: [retrieved pair 2]
+   A: [answer 2]
+   
+   Question: [user question]
+   Answer:
               │
               ▼
-5. Run inference: Custom transformer (or Groq fallback)
+5. Run inference: Custom transformer (50M-100M params)
               │
               ▼
 6. Return response to user
@@ -257,13 +304,14 @@ Single HTML page with minimal design.
 | Structure | Monorepo (backend serves frontend) |
 | Always on | Yes |
 
+50M-100M parameter model is ~100-200MB. Still fits Railway.
+
 ### Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
-| GROQ_API_KEY | Optional fallback LLM |
 
 ---
 
@@ -297,18 +345,22 @@ Single HTML page with minimal design.
 |---------|--------|
 | Caching | Low traffic, adds complexity |
 | Comparison mode | Not needed for portfolio |
-| User level selection | 1.2M model too small |
+| User level selection | Single model |
 | Hybrid search | Storage limit exceeded |
+| Groq fallback | User requirement: custom model must work |
 
 ---
 
-## Open Questions for End-to-End Testing
+## Next Steps
 
-1. **Inference approach:** Custom model only, Groq only, or both?
-2. **Test interface:** CLI script or API endpoint first?
-3. **Prompt format:** How to structure retrieved context + question?
+1. **Update model.py** for 50M-100M parameters
+2. **Generate context-format training data** from 28,671 Q&A pairs
+3. **Retrain on HPC** (30-60 min estimated)
+4. **Test coherent generation** with context
+5. **Connect RAG to model** for end-to-end testing
+6. **Deploy to Railway**
 
 ---
 
-*Document version: 9.0*
+*Document version: 10.0*
 *Last updated: December 24, 2025*

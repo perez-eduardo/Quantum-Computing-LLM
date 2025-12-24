@@ -11,11 +11,50 @@
 
 ## Current Status
 
-**Phase 1:** Training Pipeline - ✅ COMPLETE
+**Phase 1:** Training Pipeline - ⚠️ REQUIRES RETRAINING
 **Phase 2:** RAG System - ✅ COMPLETE
-**Phase 3:** Backend - ⬜ IN PROGRESS
+**Phase 3:** Backend - ⬜ BLOCKED (awaiting model retraining)
 
-**Next Action:** Connect RAG retrieval to model for end-to-end testing
+**Next Action:** Retrain model with context-aware format (50M-100M params)
+
+---
+
+## CRITICAL DESIGN FLAW DISCOVERED (December 24, 2025)
+
+### The Problem
+
+The 1.2M parameter model was trained on plain Q&A format:
+```
+Q: What is superposition?
+A: Superposition allows...
+```
+
+But at inference time, RAG retrieves context that the model cannot use:
+```
+Context: [retrieved Q&A pairs]
+Question: What is superposition?
+```
+
+**Result:** The model ignores context entirely because it never learned the format.
+
+### The Solution
+
+1. **Retrain with context-aware format:**
+```
+Context:
+Q: What is entanglement?
+A: Entanglement correlates two qubits...
+
+Q: What is a qubit?
+A: A qubit is the basic unit...
+
+Question: What is superposition?
+Answer: Superposition allows a qubit to be in multiple states...
+```
+
+2. **Scale model to 50M-100M parameters** for coherent generation
+
+3. **Deploy on Railway** (still fits, ~100-200MB for 50M-100M params)
 
 ---
 
@@ -30,7 +69,7 @@
 | ~~Obtain ChatGPT synthetic Q&A~~ | ❌ Abandoned | 94% garbage. Replaced with Claude Q&A. |
 | Obtain book PDFs | ✅ Done | 5 books |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs across 38 batches |
-| Obtain CoT Reasoning Dataset | ✅ Done | 2,756 Q&A pairs with chain-of-thought |
+| Obtain CoT Reasoning Dataset | ✅ Done | 2,998 Q&A pairs with chain-of-thought |
 
 ### Data Processing & Cleaning
 
@@ -40,9 +79,20 @@
 | Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,008 pairs |
 | Extract and clean book texts | ✅ Done | 633,562 words |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs |
-| Process CoT dataset | ✅ Done | 2,756 pairs |
-| Combine all sources | ✅ Done | 26,764 Q&A pairs |
+| Process CoT dataset | ✅ Done | 2,998 pairs |
 | Train custom BPE tokenizer | ✅ Done | 16K vocab |
+| **Add context to CoT dataset** | ✅ Done | Reasoning from metadata |
+| **Add context to Stack Exchange** | ✅ Done | Tags + body as context |
+| **Add context to Claude Q&A** | ✅ Done | Template-based context (38 batches) |
+
+### Context-Format Data (NEW)
+
+| Source | Rows | Context Type |
+|--------|------|--------------|
+| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
+| stackexchange_qa_context.csv | 10,673 | Tags + question body |
+| claude_qa_batch1-38_context.csv | 15,000 | Template-based (question type + topics) |
+| **Total** | **28,671** | |
 
 ### HPC Training
 
@@ -55,103 +105,51 @@
 | Train model v3 (clean data) | ✅ Done | 10 epochs, perplexity 89.63, 16.4% eval |
 | Train model v4 (expanded data) | ✅ Done | 10 epochs, perplexity 91.80, 11.4% eval |
 | Download model files | ✅ Done | `training/model/` |
+| **Update model.py for 50M-100M params** | ⬜ Pending | Required for coherent generation |
+| **Retrain with context-aware format** | ⬜ Pending | New training format |
 
 ### RAG System
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Set up Neon database with pgvector | ✅ Done | Free tier, 512MB limit |
-| Embed book chunks | ✅ Done | 2,847 chunks (later removed) |
-| Test initial retrieval | ✅ Done | 92% pass rate |
 | Embed Q&A pairs | ✅ Done | 26,764 pairs embedded |
-| Test improved retrieval | ✅ Done | 94% pass rate |
-| Remove book chunks | ✅ Done | Q&A pairs are better quality |
-| Attempt hybrid search | ❌ Skipped | Storage limit hit, 94% is sufficient |
+| Test retrieval | ✅ Done | 94% pass rate |
 
 ---
 
-## Training Results
+## Training Results (v1-v4, Pre-Redesign)
 
-### v1 (Garbage Data - December 21, 2025)
-
-| Metric | Value |
-|--------|-------|
-| Data | 96K Q&A (94% ChatGPT garbage) |
-| Epochs | 3 |
-| Perplexity | 15.55 |
-| Eval Score | 14.8% keyword match |
-| Boilerplate | 83.4% contaminated |
-
-### v3 (Clean Data - December 23, 2025)
+### v4 (Final before redesign - December 24, 2025)
 
 | Metric | Value |
 |--------|-------|
-| Data | 24K Q&A (Claude + Stack Exchange) |
-| Epochs | 10 |
-| Perplexity | 89.63 |
-| Eval Score | 16.4% keyword match |
-| Boilerplate | 0% contaminated |
-
-### v4 (Expanded Data - December 24, 2025)
-
-| Metric | Value |
-|--------|-------|
-| Data | 26,764 Q&A (Claude + Stack Exchange + CoT) |
+| Data | 26,764 Q&A (plain format, NO context) |
 | Epochs | 10 |
 | Perplexity | 91.80 |
 | Eval Score | 11.4% keyword match |
 | Boilerplate | 0% contaminated |
 
----
-
-## RAG Results
-
-### Retrieval Quality
-
-| Version | Pass Rate | Notes |
-|---------|-----------|-------|
-| v1 (books only) | 92% | Book chunks mention terms without defining |
-| v2 (books + Q&A) | 94% | Q&A pairs have actual definitions |
-| v2 (Q&A only) | 94% | Removed book chunks, same quality |
-
-### Database Contents
-
-| Content | Count | Status |
-|---------|-------|--------|
-| Book chunks | 0 | Removed (Q&A pairs are better) |
-| Q&A pairs | 26,764 | Active |
-| **Total** | **26,764** | |
-
-### Q&A Sources in RAG
-
-| Source | Count |
-|--------|-------|
-| claude_synthetic | 15,000 |
-| stackexchange | 9,008 |
-| cot_reasoning | 2,756 |
-
-### Remaining Failures (6/100)
-
-| Query | Issue |
-|-------|-------|
-| Computational basis | Retrieved question, not definition |
-| Fredkin gate | Data gap |
-| QAOA | Acronym confusion with QBism |
-| Quantum counting | Retrieved excerpt, not definition |
-| Partial trace | Retrieved related but not definition |
-| Fidelity | Retrieved "layer fidelity" variant |
+**Problem:** Cannot use RAG context at inference. Requires retraining.
 
 ---
 
 ## What Is Next
 
-**Immediate next task:** End-to-end testing (connect RAG to model)
-
-### Phase 3: Backend
+### Immediate: Model Retraining
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Determine inference approach | High | ⬜ Pending |
+| Generate context-format training data | High | ✅ Done |
+| Update model.py to 50M-100M params | High | ⬜ Pending |
+| Retrain on HPC (30-60 min) | High | ⬜ Pending |
+| Test coherent generation | High | ⬜ Pending |
+| Evaluate with context | High | ⬜ Pending |
+
+### Phase 3: Backend (After Retraining)
+
+| Task | Priority | Status |
+|------|----------|--------|
 | Implement RAG + model pipeline | High | ⬜ Pending |
 | Create FastAPI endpoints | High | ⬜ Pending |
 | Test end-to-end flow | High | ⬜ Pending |
@@ -174,17 +172,17 @@
 
 ## Development Phases
 
-### Phase 1: Training Pipeline ✅ COMPLETE
+### Phase 1: Training Pipeline ⚠️ REQUIRES RETRAINING
 
 | Task | Status |
 |------|--------|
 | Generate Claude Q&A (15,000 pairs) | ✅ Done |
 | Process Stack Exchange | ✅ Done |
-| Process CoT dataset (2,756 pairs) | ✅ Done |
-| Combine all sources | ✅ Done |
-| Train model v4 | ✅ Done |
-| Evaluate model v4 | ✅ Done |
-| Download model files | ✅ Done |
+| Process CoT dataset (2,998 pairs) | ✅ Done |
+| **Add context to all datasets** | ✅ Done |
+| Train model v4 (plain format) | ✅ Done |
+| **Update architecture (50M-100M)** | ⬜ Pending |
+| **Retrain with context format** | ⬜ Pending |
 
 ### Phase 2: RAG System ✅ COMPLETE
 
@@ -195,7 +193,7 @@
 | Test retrieval quality | ✅ Done |
 | Achieve 94% pass rate | ✅ Done |
 
-### Phase 3: Backend ⬜ IN PROGRESS
+### Phase 3: Backend ⬜ BLOCKED
 
 | Task | Status |
 |------|--------|
@@ -204,31 +202,25 @@
 | RAG integration | ⬜ Pending |
 | End-to-end testing | ⬜ Pending |
 
-### Phase 4: Frontend
-
-| Task | Status |
-|------|--------|
-| Single HTML page | ⬜ Pending |
-| API integration | ⬜ Pending |
-
-### Phase 5: Deployment
-
-| Task | Status |
-|------|--------|
-| Deploy to Railway | ⬜ Pending |
-| Set spending caps | ⬜ Pending |
-
 ---
 
 ## Output Files
 
-### Local (training/model/)
+### Context-Format Training Data (NEW)
+
+| File | Rows | Description |
+|------|------|-------------|
+| `cot_qa_context.csv` | 2,998 | question, answer, context (reasoning) |
+| `stackexchange_qa_context.csv` | 10,673 | question, answer, context (tags + body) |
+| `claude_qa_batch1-38_context.csv` | 15,000 | question, answer, context (template) |
+
+### Local (training/model/) - OUTDATED
 
 | File | Description |
 |------|-------------|
-| `final_model.pt` | v4 model weights |
+| `final_model.pt` | v4 model weights (plain format, cannot use context) |
 | `best_model.pt` | Best model by val loss |
-| `config.json` | Model config |
+| `config.json` | Model config (needs update for 50M-100M) |
 | `tokenizer.json` | BPE tokenizer (16K vocab) |
 
 ### Database (Neon)
@@ -245,20 +237,18 @@
 
 2. **Claude Q&A generation works.** 15,000 pairs with 100% unique questions, proper verification.
 
-3. **More epochs help.** Checkpoint comparison showed clear progression epoch 1 → 5 → 10.
+3. **Small models learn vocabulary, not reasoning.** 1.2M params produces quantum jargon but incoherent answers.
 
-4. **Higher perplexity can be better.** v1's low perplexity came from memorizing garbage.
+4. **Data quality verification is critical.** Boilerplate check confirmed 0% contamination.
 
-5. **Small models learn vocabulary, not reasoning.** 1.2M params produces quantum jargon but incoherent answers. RAG essential.
+5. **Q&A pairs beat book chunks for RAG.** Book chunks mention terms without defining them.
 
-6. **Data quality verification is critical.** Boilerplate check confirmed 0% contamination.
+6. **94% retrieval is achievable.** Remaining failures are data gaps and semantic edge cases.
 
-7. **H100s are fast.** 10 epochs in 13 minutes at 620K tokens/sec.
+7. **CRITICAL: Training format must match inference format.** Model trained on plain Q&A cannot use RAG context. Must retrain with context-aware format.
 
-8. **Q&A pairs beat book chunks for RAG.** Book chunks mention terms without defining them. Q&A pairs have actual definitions.
-
-9. **94% retrieval is achievable.** Remaining failures are data gaps and semantic edge cases.
+8. **Coherent generation requires capacity.** 50M-100M parameters needed for readable answers, not 1.2M.
 
 ---
 
-*Document version: 11.0*
+*Document version: 12.0*
