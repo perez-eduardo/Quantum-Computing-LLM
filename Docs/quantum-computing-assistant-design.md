@@ -29,6 +29,20 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 
 ---
 
+## Current Status
+
+| Component | Status |
+|-----------|--------|
+| Custom Model | ✅ Trained (v4) |
+| RAG System | ✅ Complete (94% retrieval) |
+| Backend | ⬜ In Progress |
+| Frontend | ⬜ Pending |
+| Deployment | ⬜ Pending |
+
+**Next Action:** Connect RAG retrieval to model for end-to-end testing
+
+---
+
 ## Topic Scope
 
 **Focus:** Foundational quantum computing concepts for beginners (no math)
@@ -53,9 +67,9 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 |-------|--------|-------|
 | Frontend | Single HTML page | Minimal, self-contained |
 | Backend | Python + FastAPI | RAG pipeline, model inference |
-| Database | Neon PostgreSQL + pgvector | Free tier, auto-wake from cold start |
-| Custom LLM | Trained transformer (~1.2M params) | Decoder-only, Chinchilla-optimal |
-| Training Data | Claude Q&A + Stack Exchange + CoT Dataset + Books | ~5.9M tokens |
+| Database | Neon PostgreSQL + pgvector | Free tier, 26,764 Q&A embeddings |
+| Custom LLM | Trained transformer (~1.2M params) | Decoder-only, v4 |
+| Training Data | Claude Q&A + Stack Exchange + CoT | 26,764 pairs |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
@@ -76,63 +90,33 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Attention heads | 4 | 16 dim per head |
 | Embedding dimension | 64 | Scaled for 1.2M params |
 
-### Training Status
+### Training Status: ✅ Complete
 
-> **🔄 PHASE 1 REDO (December 24, 2025)**
-> 
-> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
-> - Retraining with expanded dataset required
-> - Target: Model v4 with ~27K Q&A pairs
+### Training Data (v4)
 
-### Training Data
+| Source | Count | Status |
+|--------|-------|--------|
+| Claude Q&A | 15,000 pairs | ✅ Complete |
+| Stack Exchange (filtered) | 9,008 pairs | ✅ Complete |
+| CoT Reasoning Dataset | 2,756 pairs | ✅ Complete |
+| **Total** | **26,764 Q&A** | ✅ Complete |
 
-**v4 Dataset (Planned):**
+### Training Results
 
-| Source | Count | Est. Tokens | Status |
-|--------|-------|-------------|--------|
-| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
-| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
-| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
-| Books | 633,562 words | ~0.9M | ✅ Ready |
-| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
+| Version | Data | Perplexity | Eval Score |
+|---------|------|------------|------------|
+| v1 | 96K (garbage) | 15.55 | 14.8% |
+| v3 | 24K (clean) | 89.63 | 16.4% |
+| **v4** | **26,764** | **91.80** | **11.4%** |
 
-### CoT Reasoning Dataset
+### Model Files (Local)
 
-| Property | Value |
-|----------|-------|
-| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
-| Total entries | 3,000 Q&A pairs |
-| Answer length | ~3,000-4,000 chars each |
-| Structure | question, answer, metadata (topic, difficulty, reasoning) |
-| License | MIT (open source) |
-
-**Why include:**
-- Chain-of-thought reasoning in answers
-- Self-contained explanations
-- Wide topic coverage (fundamentals to advanced)
-- Pre-structured Q&A format
-
-### Claude Q&A Generation Details
-
-| Parameter | Value |
-|-----------|-------|
-| Total pairs | 15,000 |
-| Batches | 38 |
-| Unique questions | 100% |
-| Phase 1 (topics) | Batches 1-25 |
-| Phase 2 (formats) | Batches 26-38 |
-
-**Topics Covered:**
-- Fundamentals, Algorithms, Hardware, Error Correction
-- Chemistry, ML, Cryptography, Complexity
-- Quantum Optics, Superconducting, Communication
-- Trapped Ion, Neutral Atom, Photonic
-
-**Question Formats:**
-- How/Why questions
-- What-if, Troubleshooting
-- Comparisons, Recommendations
-- Definitions, Fact-checking
+| File | Location |
+|------|----------|
+| `final_model.pt` | `training/model/` |
+| `best_model.pt` | `training/model/` |
+| `config.json` | `training/model/` |
+| `tokenizer.json` | `training/model/` |
 
 ### Tokenizer
 
@@ -144,32 +128,28 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | `<eos>` | 1 | End of sequence |
 | `<unk>` | 2 | Unknown token fallback |
 
-### Training Infrastructure
-
-| Resource | Details |
-|----------|---------|
-| HPC | Oregon State University |
-| GPU | NVIDIA H100 80GB |
-| Duration | ~13 minutes for 10 epochs (v3) |
-| Throughput | ~620K tokens/sec |
-
 ---
 
 ## RAG System
 
+### Status: ✅ Complete (94% retrieval)
+
 ### Purpose
 
-The custom 1.2M parameter model has limited knowledge capacity. RAG compensates by retrieving relevant document chunks at query time.
+The custom 1.2M parameter model has limited knowledge capacity. RAG compensates by retrieving relevant Q&A pairs at query time.
 
 **Key insight from training:** Small models learn vocabulary, not reasoning. The model outputs quantum terminology but answers are incoherent. RAG provides the actual knowledge at inference time.
 
-### Chunking Strategy
+### Database Contents
 
-| Parameter | Value |
-|-----------|-------|
-| Chunk size | ~500 tokens |
-| Overlap | ~50-100 tokens |
-| Metadata | Source, section, chunk index |
+| Source | Count |
+|--------|-------|
+| claude_synthetic | 15,000 |
+| stackexchange | 9,008 |
+| cot_reasoning | 2,756 |
+| **Total** | **26,764** |
+
+**Note:** Book chunks were removed. Q&A pairs provide better retrieval because they contain actual definitions rather than mentions.
 
 ### Embedding Configuration
 
@@ -180,32 +160,21 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 | input_type (documents) | "document" |
 | input_type (queries) | "query" |
 
+### Retrieval Quality
+
+| Metric | Value |
+|--------|-------|
+| Test questions | 100 |
+| Pass rate | 94% |
+| Failures | 6 (data gaps, semantic edge cases) |
+
 ### Search Strategy
 
 | Method | Details |
 |--------|---------|
 | Primary | Semantic search (pgvector cosine similarity) |
-| Top-k | 5 chunks |
-
-### RAG Data Sources
-
-| Source | Type | Count/Size |
-|--------|------|------------|
-| **Books** | Chunked text | 5 books, ~2,847 chunks |
-| **Stack Exchange** | Q&A pairs | 9,019 pairs |
-| **CoT Reasoning Dataset** | Q&A pairs | 3,000 pairs |
-
-#### Books
-
-| Book | Author |
-|------|--------|
-| Introduction to Classical and Quantum Computing | Wong |
-| Quantum Computing for Everyone | Bernhardt |
-| Quantum Computing Explained for Beginners | Pantheon Space Academy |
-| Quantum Computation and Quantum Information | Nielsen & Chuang |
-| Quantum Computing: An Applied Approach | Hidary |
-
-**Dual purpose:** Books used for both training (teaches vocabulary) and RAG (provides knowledge at inference).
+| Top-k | 3-5 chunks |
+| Hybrid | Skipped (storage limit) |
 
 ---
 
@@ -218,13 +187,13 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 2. Generate query embedding (Voyage AI, input_type="query")
               │
               ▼
-3. Retrieve top-k relevant chunks (pgvector)
+3. Retrieve top-k relevant Q&A pairs (pgvector)
               │
               ▼
 4. Build prompt with context
               │
               ▼
-5. Run inference: Custom transformer
+5. Run inference: Custom transformer (or Groq fallback)
               │
               ▼
 6. Return response to user
@@ -256,8 +225,8 @@ Response:
   "answer": "Quantum entanglement is a phenomenon where...",
   "sources": [
     {
-      "document": "Introduction to Quantum Computing",
-      "section": "Chapter 3: Entanglement"
+      "source": "claude_synthetic",
+      "relevance": 0.89
     }
   ]
 }
@@ -294,7 +263,7 @@ Single HTML page with minimal design.
 |----------|---------|
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
-| MODEL_PATH | Path to custom model weights |
+| GROQ_API_KEY | Optional fallback LLM |
 
 ---
 
@@ -329,9 +298,17 @@ Single HTML page with minimal design.
 | Caching | Low traffic, adds complexity |
 | Comparison mode | Not needed for portfolio |
 | User level selection | 1.2M model too small |
-| Fallback LLM | Custom model is the portfolio piece |
+| Hybrid search | Storage limit exceeded |
 
 ---
 
-*Document version: 8.0*
+## Open Questions for End-to-End Testing
+
+1. **Inference approach:** Custom model only, Groq only, or both?
+2. **Test interface:** CLI script or API endpoint first?
+3. **Prompt format:** How to structure retrieved context + question?
+
+---
+
+*Document version: 9.0*
 *Last updated: December 24, 2025*

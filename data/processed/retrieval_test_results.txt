@@ -1,347 +1,132 @@
 RETRIEVAL QUALITY TEST RESULTS
-Passed: 92/100 (92%)
-Failed: 8/100 (8%)
+Passed: 94/100 (94%)
+Failed: 6/100 (6%)
 
 FAILED CASES:
 ============================================================
 
-Question: What is amplitude amplification?
-Expected: ['Grover', 'increase probability', 'rotation', 'oracle']
+Question: What is the computational basis?
+Expected: ['|0⟩', '|1⟩', 'basis states', 'standard basis', 'orthonormal']
 
-Result 1 (nielsen_chuang, chunk 885, sim=0.5562):
-to an improvement in the ﬁdelity of the quantum states being
-protected by the code.
-Not all noisy channels can be interpreted so easily as a random combination of no
-error, bit ﬂips, phase ﬂips and combinations of the two. Many naturally occurring quan-
-tum channels have no such interpretation. Consider the example of amplitude damping
-(Section 8.3.5), which has operation elements E0 and E1:
-√1 −γ
+Result 1 (stackexchange, chunk 15949, sim=0.6001):
+Q: Is where measurement is done the requirement for what gets to be called the computational basis?
 
-(10.46)
-The parameter γ is a small positive parameter characterizing the strength of the ampli-
-tu
+In Nielsen and Chuang, chapter 1.3.3 is named as "Measurements in bases other than the computational basis". This name confuses me - after the measurement is done on a new base, doesn't this new base become the computational basis?
+A: The computational basis is just a convention for the $Z$ basis, as its orthogonal basis is $\{|0\rangle, |1\rangle\}$; which is  analog to the bit in classical comp
 
-Result 2 (nielsen_chuang, chunk 776, sim=0.5379):
-B = exp
-a†b −ab†', where
-a, a† and b, b† are annihilation and creation operators for photons in the two modes. The
-output after the beamsplitter, assuming the environment starts out with no photons, is
-simply B|0⟩(a|0⟩+b|1⟩) = a|00⟩+b(cos θ|01⟩+sin θ|10⟩), using Equation (7.34). Tracing
-over the environment gives us the quantum operation
-EAD(ρ) = E0ρE†
-0 + E1ρE†
-(8.107)
-where Ek = ⟨k|B|0⟩are
-√1 −γ
+Result 2 (claude_synthetic, chunk 9743, sim=0.5977):
+Q: What is the computational basis?
+A: The computational basis is the standard set of states used to read out qubits: the states 0 and 1 for each qubit. When we measure in the computational basis, we get a definite string of 0s and 1s. Other bases exist, but the computational basis is the default for final measurements.
 
-(8.108)
-the operation elements for amplitude damping. γ = sin2 θ can be thought of as the
-probabil
-
-Result 3 (nielsen_chuang, chunk 886, sim=0.5376):
-operator-sum representation for the process contains a large
-identity component. Intuitively it seems reasonable that in such a circumstance error-
-correction should result in a net gain in the storage ﬁdelity for quantum information,
-provided the noise is sufﬁciently weak. We will now show that this is in fact the case,
-using the speciﬁc example of the amplitude damping channel for concreteness. A simple
-calculation shows that the minimum ﬁdelity for the amplitude damping channel applied
-
-Theor
+Result 3 (claude_synthetic, chunk 8019, sim=0.5742):
+Q: Why is the computational basis the default for measurement?
+A: The computational basis is natural for extracting classical information since outcomes are directly classical bit values. Hardware readout mechanisms are typically designed to distinguish these states. Other bases require transformation gates before the physical measurement process.
 ------------------------------------------------------------
 
-Question: What is the swap test?
-Expected: ['overlap', 'inner product', 'fidelity', 'compare states']
+Question: What is the Fredkin gate?
+Expected: ['controlled swap', 'CSWAP', 'three-qubit', 'reversible']
 
-Result 1 (wong, chunk 171, sim=0.4947):
-ting on a general superposition,
-1 0 0 0
-0 0 1 0
-0 1 0 0
-0 0 0 1
-So, the amplitudes of |01⟩and |10⟩are swapped, as expected.
-As a quantum circuit, we can draw a SWAP gate using a vertical line with ×’s
-at each end, or by literally swapping the wires:
-In Quirk, “Swap” is located in the top Toolbox under “Half Turns”:
-4 Multiple Quantum Bits
-We also included an X gate so that the top qubit is a |1⟩. This swaps with the
-bottom qubit, which then swaps with the middle qubit, so the result is that the
-
-Result 2 (wong, chunk 213, sim=0.4542):
-s in the Shor code. Then, the Zt gates applies a partial bit flip
-to one triplet. In the middle section, you should add the previously given circuit. As described in
-Exercise 4.45, postselect on |0⟩as a workaround for resetting the ancilla qubits. In the last section
-of the circuit, we undo the Shor encoding and Hadamard gate so that all the qubits are |0⟩again.
-Verify that your circuit does this. Try moving the Zt gate around to different triplets to ensure that
-the phase flip is corrected in a
-
-Result 3 (nielsen_chuang, chunk 661, sim=0.4541):
-bability amplitude. This real-
-izes the transform of (7.123), as desired. We shall write this gate as Cj(Z) (denoting a
-controlled-Z operation), where j indicates which ion the gate is applied to. Note that
-the same phonon is shared by all the ions, since it is a center-of-mass phonon; because
-of this, adopting engineering terminology, this has been called the phonon ‘bus’ qubit in
-the literature.
-
-Figure 7.11. Energy levels of a three-level atom in an ion trap, with two phonon states each. The 
+Result 1 (cot_reasoning, chunk 24849, sim=0.1503):
+Q: What are the fundamental differences between crystalline, amorphous, and quasicrystalline solids in terms of their atomic structure and physical properties?
+A: Fundamental Differences Between Crystalline, Amorphous, and Quasicrystalline Solids Crystalline, amorphous, and quasicrystalline solids represent distinct types of atomic arrangements, each resulting in unique physical properties. Let's delve into their differences. Crystalline Solids: Atomic Structure: Crystalline solids are character
 ------------------------------------------------------------
 
-Question: What is the surface code?
-Expected: ['2D', 'lattice', 'threshold', 'topological']
+Question: What is QAOA?
+Expected: ['optimization', 'combinatorial', 'approximate', 'MaxCut', 'variational']
 
-Result 1 (hidary, chunk 104, sim=0.4423):
-printing
-out text representations. Figure 6.5 shows the circuit for this program drawn
-with the code shown below:
-circ.draw(filename="qiskit-circuit", output="latex")
-After printing the circuit, a backend is declared for executing the quantum
-circuit. In the ﬁnal lines, the circuit is executed, the results are retrieved,
-and ﬁnally the measurement statistics (counts) are printed to the screen. An
+Result 1 (claude_synthetic, chunk 2383, sim=0.3958):
+Q: What is the observer's consciousness in QBism?
+A: QBism centers on agent experience. But does not invoke consciousness as cause. Agent is normative not causal.
 
-SECTION 6.4
-Forest
-example output of this program is shown below. Note that the circuit will
-also b
+Result 2 (nielsen_chuang, chunk 1032, sim=0.3896):
+A. Introduce an auxiliary system B whose state
+space has an orthonormal basis |i⟩corresponding to the index i on the density operators
+ρi. Deﬁne a joint state of AB by:
+ρAB ≡
 
-Result 2 (wong, chunk 230, sim=0.4394):
-rcuit=circuit)
-editor
-The first line loads a package that will allow us to view the Circuit Composer from
-within the Quantum Lab. The second-to-last line creates the Circuit Composer as
-an object named editor, and the last line displays the editor. We can run this cell by
-selecting the cell and clicking the ▷Run button, or by pressing Shift+Enter on your
-keyboard. When we do, we get the following:
+piρi ⊗|i⟩⟨i|.
+(11.80)
+To prove concavity we use the subadditivity of the entropy. Note that for the density
+matrix ρAB we have:
+S(A) = S
 
-5.3 Qiskit
-After running the cell, a second, empty cell appears below. We can put any Python
-code 
+piS(ρi).
+(11.83)
+Applying the subadditivity inequality S(A, B) ≤S(A) + S(B) we obtain
 
-Result 3 (beginners, chunk 242, sim=0.4329):
-, guiding you through known
-courses and websites, but always maintain that spark of curiosity, urging
-you to venture beyond the mapped trail.
-As you turn the page to Quantum Cryptography in Chapter 7, carry forward
-this spirit of exploration and wonder, for in quantum, the journey is as
-exhilarating as the destination. Embrace the adventure, stay curious, and
-always be prepared to learn and adapt!
+(11.84)
+which is concavity! Note that equality holds if and only if all the states ρi for which
+pi 
 
-Chapter 7
-Quantum Cryptography
-Diving into the Secure Submarine Depths
-Beyond the shimmering horiz
+Result 3 (cot_reasoning, chunk 24024, sim=0.3861):
+Q: What is Quantum Chromodynamics (QCD), and what are its key features and fundamental concepts?
+A: Quantum Chromodynamics (QCD) is the theory of the strong interaction, which is one of the four fundamental forces of nature (the others being the electromagnetic, weak, and gravitational forces). QCD describes the interactions between quarks and gluons, the fundamental constituents of hadrons such as protons and neutrons. Key Features of QCD: Color Charge: Quarks possess a property called color ch
 ------------------------------------------------------------
 
-Question: What is a CSS code?
-Expected: ['Calderbank-Shor-Steane', 'classical codes', 'X and Z']
+Question: What is quantum counting?
+Expected: ['Grover', 'number of solutions', 'phase estimation']
 
-Result 1 (wong, chunk 13, sim=0.5531):
-. Base-16, commonly called hexadecimal, is another frequently used number system
-in computing. The sixteen digits are 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F. So the letter A is
-ten in decimal, B is eleven in decimal, ..., and F is fifteen in decimal. For example, converting the
-hexadecimal number F2A to decimal,
-= 3882.
-(a) Convert the hexadecimal number 3B7C to a decimal (base 10) number.
+Result 1 (hidary, chunk 41, sim=0.5242):
+antum computation which are different than
+gate-based approaches.
+As one set of researchers were making progress in identifying algorithms
+that would run on a quantum computer with speedup over classical computers,
+others were making progress on the physical implementation of a QC. In 1999-
+2001, Yasunobu Nakamura built and demonstrated a functioning, controllable
+superconducting qubit [202, 203]. Nakamura used Josephson junctions to
+create a two-level system that the user could manipulate betwe
 
-1.1 Bits
-(b) Convert the hexadecimal number FF to a binary (base 2) number. (So two hexadecimal nu
+Result 2 (nielsen_chuang, chunk 14, sim=0.4819):
+tal physical limitations on the space and time
+required to construct a quantum state? How much time and space are required for a given
+dynamical operation? What makes quantum systems difﬁcult to understand and simulate
+by conventional classical means?
+Writing this book in the late 1990s, we were fortunate to be writing at a time when
+these and other fundamental questions had just crystallized out. Ten years later it is
+clear such questions offer a sustained force encouraging a broad research pro
 
-Result 2 (nielsen_chuang, chunk 907, sim=0.5469):
-rror-detection and correction steps require
-only the application of Hadamard and controlled-
-gates, in each case a number linear
-in the size of the code. Encoding and decoding can also be performed using a number of
-gates linear in the size of the code, but we won’t discuss that here; it’s discussed later in
-more generality in Section 10.5.8.
-Exercise 10.27:
-Show that the codes deﬁned by
-|x + C2⟩≡
-
-(−1)u·y|x + y + v⟩
-(10.75)
-and parameterized by u and v are equivalent to CSS(C1, C2) in the sense
-
-Result 3 (nielsen_chuang, chunk 908, sim=0.5428):
-rix we recall here:
-(10.76)
-Suppose we label this code C and deﬁne C1 ≡C and C2 ≡C⊥. To use these codes to
-deﬁne a CSS code we need ﬁrst to check that C2 ⊂C1. By deﬁnition the parity check
-matrix of C2 = C⊥is equal to the transposed generator matrix of C1 = C:
-H[C2] = G[C1]T =
-(10.77)
-Exercise 10.28:
-Verify that the transpose of the matrix in (10.77) is the generator of
-the [7, 4, 3] Hamming code.
-
-Stabilizer codes
-Comparing with (10.76) we see that the span of the rows of H[C2] strictly contain
+Result 3 (claude_synthetic, chunk 8163, sim=0.4802):
+Q: What is continuous measurement theory?
+A: Continuous measurement theory describes ongoing weak measurement of quantum systems. The measurement record provides information while partially collapsing the state. This framework models realistic monitoring scenarios.
 ------------------------------------------------------------
 
-Question: What is magic state distillation?
-Expected: ['T gate', 'fault-tolerant', 'noisy', 'purify']
+Question: What is the partial trace?
+Expected: ['subsystem', 'reduced', 'trace out', 'entanglement']
 
-Result 1 (nielsen_chuang, chunk 1151, sim=0.4934):
-ular types
-of entanglement transformation, known as entanglement distillation and entanglement
-dilution. The idea of entanglement distillation is for Alice and Bob to convert some
-large number of copies of a known pure state |ψ⟩into as many copies of the Bell state
-2 as possible using local operations and classical communication, requiring
-not that they succeed exactly, but only with high ﬁdelity. Entanglement dilution is the
-reverse process of using LOCC to convert a large number of copies of t
+Result 1 (nielsen_chuang, chunk 766, sim=0.4581):
+o study
+quantum error-correction from that point of view. As usual, having multiple ways of
+understanding a process gives us much more insight into what is going on.
+Examples of quantum noise and quantum operations
+In this section we examine some concrete examples of quantum noise and quantum
+operations. These models illustrate the power of the quantum operations formalism we
+have been developing. They are also important in understanding the practical effects
+of noise on quantum systems, and how
 
-Result 2 (nielsen_chuang, chunk 1153, sim=0.4866):
-two deﬁnitions give the same number for
-the quantity of entanglement; we will see that for pure states |ψ⟩the entanglement of
-formation and the distillable entanglement are in fact exactly the same!
-Let’s take a look at a simple protocol for entanglement dilution, and another for
+Result 2 (claude_synthetic, chunk 3711, sim=0.4349):
+Q: What is the trajectory simulation?
+A: Trajectory simulation uses quantum jumps and stochastic processes. Individual trajectories are pure; averaging gives mixed states. Trajectories provide physical insight.
 
-Entanglement as a physical resource
-entanglement distillation. Suppose an entangled state |ψ⟩has Schmidt decomposition
-
-p(x)|xA⟩|xB⟩.
-(12.167)
-We write the squared Schmidt co-efﬁcients p(x) in the form we usually reser
-
-Result 3 (nielsen_chuang, chunk 1154, sim=0.4704):
-=
-
-p(x1)p(x2) . . . p(xm)|x1Ax2A . . . xmA⟩|x1Bx2B . . . xmB⟩. (12.168)
-Suppose that we deﬁned a new quantum state |ϕm⟩by omitting all those terms x1, . . . , xm
-which are not ϵ-typical, in the sense deﬁned in Section 12.2.1:
-|ϕm⟩≡
-
-p(x1)p(x2) . . . p(xm)|x1Ax2A . . . xmA⟩|x1Bx2B . . . xmB⟩. (12.169)
-The state |ϕm⟩is not quite a properly normalized quantum state; to normalize it we deﬁne
-m⟩≡|ϕm⟩/
-
-⟨ϕm|ϕm⟩. By part 1 of the theorem of typical sequences the ﬁdelity
-F(|ψ⟩⊗m, |ϕ′
-m⟩) →1 as m →∞. Fur
-------------------------------------------------------------
-
-Question: What is quantum volume?
-Expected: ['metric', 'benchmark', 'depth', 'IBM']
-
-Result 1 (beginners, chunk 16, sim=0.5636):
-jukebox. But there's a catch. The volume knob on this
-jukebox doesn't allow for minute adjustments. You can't set it to level 2.5 or
-3.8. Only whole numbers, discrete levels of volume: 1, 2, 3, and so on.
-This is much akin to quantized energy levels in quantum mechanics. Atoms
-and their electrons don't have a continuous energy spectrum. Instead, they
-can only exist in certain, fixed energy states. Much like the jukebox, there's
-no "in-between."
-Significance in Quantum Computing
-The importance of
-
-Result 2 (wong, chunk 128, sim=0.5615):
-1⟩.
-Qubits can also be measured in other bases. A qubit can be visualized on the Bloch
-
-2.8 Summary
-sphere. Qubits are operated on by quantum gates, which are linear maps that keep
-the total probability equal to 1. A single-qubit gate is a rotation on the Bloch sphere.
-A quantum circuit is a drawing to depict what quantum gates act on a qubit, and an
-online simulator for quantum circuits is Quirk.
-
-Chapter 3
-Linear Algebra
-So far, we have done quantum computing using elementary algebra and using
-
-Result 3 (wong, chunk 127, sim=0.5604):
-ero, and this is labeled as “Off.” Second,
-the Bloch sphere representation of the qubit is shown, and the state is a point at the
-north pole, as expected.
-Now if we apply the X gate, Quirk shows the following:
-Note Quirk uses ⊕to denote a single X gate, whereas we use X (later, we will
-also use ⊕when the X gate is controlled by another qubit). Since X|0⟩= |1⟩, the
-probability of measuring |1⟩is 1. This is labeled as “On,” and the Bloch sphere now
-shows the state at the south pole, as expected.
-N
-------------------------------------------------------------
-
-Question: What is the commutator?
-Expected: ['[A,B]', 'AB - BA', 'compatible', 'uncertainty']
-
-Result 1 (hidary, chunk 378, sim=0.5046):
-entries
-is in fact a ring, i.e. is an abelian group (what should be the binary operation
-likened to “addition” be?) equipped with the additional binary operation of
-matrix multiplication satisfying: closure, associativity, and distributivity. Is
-there an identity element (as per our stringent axiom above) in this ring? If
-you think so, discover it, and prove that it really is an identity element. If you
-think not, prove that there cannot be an identity element in this ring.
-Many rings of interes
-
-Result 2 (hidary, chunk 379, sim=0.4917):
-ion
-is not commutative is quite believable.
-Here is the axiom requesting that multiplication be commutative:
- Commutativity: For all x; y 2 R,
-x y D y x
-So, multiplication in either order should yield the same product.
-11.265
-Exercise
-Verify for yourself that the following set of matrices
-surprisingly constitutes a commutative ring with unity:
-
-SECTION 11.8
-How to Build a Vector Space From Scratch
-
-Figure out the relationship between this ring of matrices and the following
-ring:
-Z=4Z equipped wi
-
-Result 3 (bernhardt, chunk 166, sim=0.4790):
-s prop­
-erty. In fact, all the gates we have introduced in this chapter, with the one
-exception of the Pauli matrix Y, also have the property that when you take
-the transpose matrix you end up with exactly the same matrix you started
-with.** Consequently, for all of these gates, AA
-= . This tells us that if we
-apply the gate twice in a row we end up with an output that is unchanged
-from the input. The second time we apply the gate, it undoes what we did
-when we applied it the first time.
-We will
+Result 3 (claude_synthetic, chunk 8716, sim=0.4124):
+Q: What is logging for quantum execution?
+A: Logging records execution details: job IDs, timestamps, results, and errors. Logs enable debugging and tracking experiment history. Structured logging facilitates analysis.
 ------------------------------------------------------------
 
 Question: What is fidelity?
 Expected: ['similarity', 'overlap', 'closeness', 'F(ρ,σ)']
 
-Result 1 (beginners, chunk 109, sim=0.4636):
-ticated algorithms. But the progress in this arena has
-been promising, laying the foundation for larger, more reliable quantum
-machines soon.
-Challenges in Achieving High-Fidelity Qubit Operations
-In quantum computing, achieving high-fidelity qubit operations is one of
-the most formidable challenges. Think of fidelity in this context as the
-trustworthiness of a qubit to execute its job accurately. Just as an expert
-pianist strives for each note to be pitch-perfect in a concert, we desire each
-qu
+Result 1 (claude_synthetic, chunk 1980, sim=0.5340):
+Q: What is the layer fidelity for ions?
+A: Fidelity of parallel layer of gates. Indicates algorithm capability. Layer fidelity benchmarks performance.
 
-Result 2 (hidary, chunk 77, sim=0.4620):
-a non-universal annealer, for instance.
-We can turn to the DiVincenzo criteria we described in chapter 2 to
-aid us in this test. For example, DiVincenzo calls for the qubits to
-be individually addressable in a quantum computer. If we have, for
-example, a two-level system comprised of an ensemble of atoms, but
-where the qubits are not individually addressable, this system would
-fail the QC test.
-2. Fidelity: While it is tempting to focus on the horse race of the number
-of qubits of each platform,
+Result 2 (stackexchange, chunk 20724, sim=0.4299):
+Q: Do avoided crossings / CTs /ZEFOZs optimize quantum fidelity in practice?
 
-Result 3 (nielsen_chuang, chunk 848, sim=0.4583):
-r(σP −1),
-(9.145)
-where the inﬁmum is taken over all invertible positive matrices P.
-Problem 9.2:
-Let E be a trace-preserving quantum operation. Show that for each ρ
-there is a set of operation elements {Ei} for E such that
-F(ρ, E) = |tr(ρE1)|2 .
-(9.146)
-Problem 9.3:
-Prove fact (5) on this page.
-Summary of Chapter 9: Distance measures for quantum information
-• Trace distance: D(ρ, σ) ≡1
-2tr|ρ −σ|. Doubly convex metric on density opera-
-tors, contractive under quantum operations.
-• Fidelity:
-F(ρ,
+CTs / ZEFOZs: Energy level structures that include avoided crossings at accessible energies tend to be resilient to noise and therefore present high coherence times, at least in the case of spin qubits and magnetic noise: as the at first order effect of the magnetic field on the qubit energy vanishes, so does effectively most magnetic noise. Different people call these Atomic Clock Transitions (CTs or ACTs) or Zero Fir
+
+Result 3 (stackexchange, chunk 18761, sim=0.4198):
+Q: Prove that the Bures metric satisfies a contractive property and has unitary invariance
+
+In this paper, the authors assert that the Bures metric satisfies a contractive property and has unitary invariance. These terms aren't defined or proved in the paper, nor is any reference given for a definition or proof. Can anyone provide a concrete definition of these terms (and a proof that the Bures metric has these properties) or a place where I can find such details?
+A: Contractivity refers to the 
 ------------------------------------------------------------

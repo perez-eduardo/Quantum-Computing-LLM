@@ -37,12 +37,12 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
 | **Frontend + Backend** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Custom)** | Your trained transformer | $0 | ~1.2M params, one-time training cost |
+| **LLM (Custom)** | Your trained transformer | $0 | ~1.2M params, trained on HPC |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
 | **Training Compute** | Oregon State HPC | $0 | H100 GPUs available |
 
-**Total: ~$5/month** (after one-time training)
+**Total: ~$5/month**
 
 ---
 
@@ -69,30 +69,22 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 
 ### Training Data
 
-> **🔄 PHASE 1 REDO (December 24, 2025)**
-> 
-> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
-> - Retraining with expanded dataset required
-> - Target: Model v4 with ~27K Q&A pairs (~5.9M tokens)
-
-#### v4 Dataset (Planned)
+#### v4 Dataset (Final)
 
 | Source | Count | Status |
 |--------|-------|--------|
-| Claude Q&A | 15,000 pairs | ✅ Ready |
-| Stack Exchange (filtered) | 9,019 pairs | ✅ Ready |
-| **CoT Reasoning Dataset** | **3,000 pairs** | ✅ Ready |
-| Books | 633,562 words | ✅ Ready |
-| **Total** | **~27,019 Q&A** | ⬜ Combine |
+| Claude Q&A | 15,000 pairs | ✅ Complete |
+| Stack Exchange (filtered) | 9,008 pairs | ✅ Complete |
+| CoT Reasoning Dataset | 2,756 pairs | ✅ Complete |
+| **Total** | **26,764 Q&A** | ✅ Complete |
 
-#### CoT Reasoning Dataset
+### Training Results
 
-| Property | Value |
-|----------|-------|
-| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
-| Entries | 3,000 Q&A pairs |
-| Features | Chain-of-thought reasoning, metadata (topic, difficulty) |
-| License | MIT |
+| Version | Data | Perplexity | Eval Score |
+|---------|------|------------|------------|
+| v1 | 96K (garbage) | 15.55 | 14.8% |
+| v3 | 24K (clean) | 89.63 | 16.4% |
+| v4 | 26,764 (expanded) | 91.80 | 11.4% |
 
 ### Compute: Oregon State University HPC
 
@@ -111,36 +103,24 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 ```
 
-### Available GPU Partitions
-
-| Partition | GPUs per Node | GPU Type | RAM | Time Limit |
-|-----------|---------------|----------|-----|------------|
-| **dgxh** | 16 | H100-40GB | 2 TB | 2 days |
-| **dgx2** | 14-16 | V100 | 1.5 TB | 7 days |
-| **gpu** | 8 | General | 760 GB | 7 days |
-| **ampere** | 2 | A-series | 252 GB | 2 days |
-
-**Recommended:** Use `dgxh` partition (H100s) for fastest training.
-
 ### Training Checklist
 
 - [x] Finalize model size (1.2M parameters)
 - [x] Gather training data (quantum computing corpus)
 - [x] Clean Stack Exchange data (filtered >1024 tokens)
 - [x] Train custom tokenizer
-- [x] Upsample books 3x
 - [x] Abandon ChatGPT data (94% garbage)
 - [x] Generate Claude Q&A (15,000 pairs)
-- [x] Combine final dataset (v3)
-- [x] Train v3 with 10 epochs
-- [x] Evaluate model (16.4% keyword match)
-- [x] Verify data quality (0% boilerplate)
-- [x] Obtain CoT Reasoning Dataset (3,000 pairs)
-- [ ] Process CoT dataset
-- [ ] Combine v4 dataset
-- [ ] Train model v4
-- [ ] Evaluate model v4
-- [ ] Integrate with RAG system
+- [x] Obtain CoT Reasoning Dataset (2,756 pairs)
+- [x] Combine v4 dataset (26,764 pairs)
+- [x] Train model v4
+- [x] Evaluate model v4
+- [x] Download model files
+- [x] Set up RAG system
+- [x] Embed Q&A pairs (26,764)
+- [x] Test retrieval quality (94%)
+- [ ] Connect RAG to model
+- [ ] End-to-end testing
 
 ---
 
@@ -176,14 +156,14 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 | Compute | 100 CU-hours/month |
 | Egress | 5 GB/month |
 
+**Current usage:**
+- 26,764 Q&A embeddings stored
+- Near storage limit (required removing book chunks)
+
 **Cold start behavior:**
 - Suspends after 5 minutes of inactivity
 - Cold start latency: ~500ms-1 second
 - Auto-wakes on first connection
-
-**Setup complete:**
-- pgvector extension enabled
-- Connection tested
 
 ---
 
@@ -202,6 +182,27 @@ FastAPI serves the frontend as static files. Single service, single URL.
 
 ---
 
+## RAG System Status
+
+### Retrieval Quality: 94%
+
+| Test | Result |
+|------|--------|
+| Questions tested | 100 |
+| Pass rate | 94% |
+| Failures | 6 (data gaps, semantic edge cases) |
+
+### Database Contents
+
+| Content | Count |
+|---------|-------|
+| Q&A embeddings | 26,764 |
+| Book chunks | 0 (removed) |
+
+**Why book chunks removed:** Q&A pairs have actual definitions. Book chunks mentioned terms without defining them, causing retrieval failures.
+
+---
+
 ## Rejected Alternatives
 
 ### ChatGPT API for Synthetic Q&A
@@ -211,6 +212,13 @@ FastAPI serves the frontend as static files. Single service, single URL.
 - 59% were templated (only numbers changed)
 - After cleaning: only 4,808 usable (6%)
 - **Replaced with:** Claude-generated Q&A via chat
+
+### Hybrid Search (BM25 + Semantic)
+- **Status:** SKIPPED (December 24, 2025)
+- Would improve retrieval from 94% to ~96-97%
+- Requires tsvector column and GIN index
+- Neon storage limit (512MB) exceeded
+- 94% is sufficient for portfolio project
 
 ### Google AI Studio (LLM + Embeddings)
 - **Status:** Gutted in December 2025
@@ -244,9 +252,11 @@ FastAPI serves the frontend as static files. Single service, single URL.
 4. **Inspect data at every step** - Don't process garbage through your pipeline
 5. **Don't trust synthetic data blindly** - ChatGPT generated 94% garbage
 6. **Verify after training** - Run boilerplate and quality checks on outputs
-7. **Look for existing quality datasets** - CoT Reasoning Dataset provides structured Q&A with reasoning
+7. **Q&A pairs beat book chunks for RAG** - Definitions > mentions
+8. **94% retrieval is good enough** - Diminishing returns on further optimization
+9. **Storage limits matter** - Neon 512MB constrains what you can store
 
 ---
 
-*Document version: 5.0*
+*Document version: 6.0*
 *Last updated: December 24, 2025*

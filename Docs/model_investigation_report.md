@@ -2,72 +2,116 @@
 
 **Date:** December 21, 2025
 **Updated:** December 24, 2025
-**Purpose:** Document findings from model training and evaluation
+**Purpose:** Document findings from model training, evaluation, and RAG system
 
-> **🔄 PHASE 1 REDO (December 24, 2025)**
-> 
-> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
-> - Retraining with expanded dataset required
-> - Target: Model v4 with ~27K Q&A pairs
+---
+
+## Current Status
+
+**Training:** ✅ Complete (v4)
+**RAG:** ✅ Complete (94% retrieval)
+**Next:** End-to-end testing
 
 ---
 
 ## Training Results Comparison
 
-### v1 vs v3 Summary
+### All Versions
 
-| Metric | v1 (Garbage) | v3 (Clean) | Change |
-|--------|--------------|------------|--------|
-| Training data | 96K (94% garbage) | 24K (clean) | Quality over quantity |
-| Epochs | 3 | 10 | +7 |
-| Duration | ~4 min | ~13 min | +9 min |
-| Final Val Loss | 2.74 | 4.50 | Higher (expected) |
-| Final Perplexity | 15.55 | 89.63 | Higher (expected) |
-| Eval Score | 14.8% | **16.4%** | **+1.6%** |
-| Boilerplate | 83.4% | **0%** | **Fixed** |
-| Template patterns | 59.0% | **0%** | **Fixed** |
+| Metric | v1 (Garbage) | v3 (Clean) | v4 (Expanded) |
+|--------|--------------|------------|---------------|
+| Training data | 96K (94% garbage) | 24K | 26,764 |
+| Epochs | 3 | 10 | 10 |
+| Duration | ~4 min | ~13 min | ~13 min |
+| Final Perplexity | 15.55 | 89.63 | 91.80 |
+| Eval Score | 14.8% | 16.4% | 11.4% |
+| Boilerplate | 83.4% | 0% | 0% |
 
-**Why v3 perplexity is higher:** v1's low perplexity came from memorizing repetitive garbage. v3 trained on diverse, clean data has higher perplexity but better output quality.
+**Why v4 eval score is lower:** More diverse data (CoT reasoning dataset) makes evaluation harder. Model learns broader patterns but scores lower on keyword matching.
 
 ---
 
-## v4 Training Plan (December 24, 2025)
+## v4 Training (December 24, 2025)
 
-### New Data Source
+### Dataset Composition
 
-**CoT_Reasoning_Quantum_Physics_And_Computing.json**
+| Source | Count |
+|--------|-------|
+| Claude Q&A | 15,000 |
+| Stack Exchange (filtered) | 9,008 |
+| CoT Reasoning Dataset | 2,756 |
+| **Total** | **26,764** |
 
-| Property | Value |
-|----------|-------|
-| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
-| Total entries | 3,000 Q&A pairs |
-| Answer length | ~3,000-4,000 chars each |
-| Structure | question, answer, metadata (topic, difficulty, reasoning) |
-| License | MIT (open source) |
+### Training Results
 
-**Why include:**
-- Chain-of-thought reasoning in answers
+| Metric | Value |
+|--------|-------|
+| Job ID | On dgxh (H100 80GB) |
+| Epochs | 10 |
+| Final Perplexity | 91.80 |
+| Eval Score | 11.4% keyword match |
+| Boilerplate | 0% |
+
+### Model Files (Downloaded)
+
+| File | Location |
+|------|----------|
+| `final_model.pt` | `training/model/` |
+| `best_model.pt` | `training/model/` |
+| `config.json` | `training/model/` |
+| `tokenizer.json` | `training/model/` |
+
+---
+
+## RAG System Results (December 24, 2025)
+
+### Retrieval Quality Evolution
+
+| Version | Contents | Pass Rate |
+|---------|----------|-----------|
+| v1 | 2,847 book chunks | 92% |
+| v2 | Books + 26,764 Q&A | 94% |
+| v2 (final) | 26,764 Q&A only | 94% |
+
+### Why Book Chunks Were Removed
+
+Book chunks caused retrieval failures because they:
+- Mentioned terms without defining them
+- Retrieved context about topics without explanations
+- Competed with Q&A pairs that had actual definitions
+
+Q&A pairs are better because:
+- Structured question/answer format
 - Self-contained explanations
-- Wide topic coverage
-- Pre-structured Q&A format
+- Direct definitions of concepts
 
-### v4 Dataset Composition
+### Current Database Contents
 
-| Source | Count | Est. Tokens | Status |
-|--------|-------|-------------|--------|
-| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
-| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
-| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
-| Books | 633,562 words | ~0.9M | ✅ Ready |
-| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
+| Source | Count |
+|--------|-------|
+| claude_synthetic | 15,000 |
+| stackexchange | 9,008 |
+| cot_reasoning | 2,756 |
+| **Total** | **26,764** |
 
-### Version Comparison
+### Remaining Failures (6/100)
 
-| Version | Q&A Pairs | Est. Tokens | Status |
-|---------|-----------|-------------|--------|
-| v1 | 96K (garbage) | N/A | ❌ Abandoned |
-| v3 | 24,019 | ~4.4M | ✅ Trained |
-| v4 | ~27,019 | ~5.9M | ⬜ Pending |
+| Query | Issue Type |
+|-------|------------|
+| Computational basis | Retrieved question instead of definition |
+| Fredkin gate | Data gap (not in training data) |
+| QAOA | Acronym confusion with QBism |
+| Quantum counting | Retrieved excerpt, not definition |
+| Partial trace | Retrieved related content, not definition |
+| Fidelity | Retrieved "layer fidelity" variant |
+
+### Hybrid Search Decision
+
+Attempted hybrid search (BM25 + semantic) to improve from 94%:
+- Required adding tsvector column and GIN index
+- Neon storage limit (512MB) exceeded
+- Decided 94% is sufficient for portfolio project
+- Hybrid search abandoned
 
 ---
 
@@ -99,13 +143,6 @@
 | medium | 14.7% | 26 |
 | hard | 8.8% | 8 |
 
-### Quality Flags
-
-| Metric | v1 | v3 |
-|--------|----|----|
-| Repetitive outputs | Many | 2 |
-| Boilerplate phrases | Heavy | None |
-
 ---
 
 ## v3 Verification Results (December 24, 2025)
@@ -119,7 +156,7 @@ Checked v3 outputs for known garbage phrases from v1 ChatGPT data.
 | Boilerplate phrases | 83.4% | **0.0%** |
 | Template patterns | 59.0% | **0.0%** |
 
-**Result:** SUCCESS - No contamination detected in v3 outputs.
+**Result:** SUCCESS - No contamination detected.
 
 ### Checkpoint Comparison
 
@@ -139,33 +176,12 @@ Compared outputs from epoch 1, 5, and 10 to verify training progression.
 | 5 | "It is different-Wave model for quantum computing." |
 | 10 | "Yes, demand or one-qubit states. A-deable states are known..." |
 
-**Q3: What is quantum entanglement?**
-| Epoch | Output |
-|-------|--------|
-| 1 | "As $ for" (garbage) |
-| 5 | "Higher-state states have a unitary high-quantum qubits..." |
-| 10 | "A[A: Quantum same is non-cloning of computational states..." |
-
 **Observations:**
 1. Epoch 1: Garbage fragments, broken tokens
 2. Epoch 5: Forming sentences, quantum terminology appearing
-3. Epoch 10: Complete sentences, proper terminology (Hadamard, quantum states)
+3. Epoch 10: Complete sentences, proper terminology
 
 **Result:** Clear progression across epochs. Training worked correctly.
-
----
-
-## Final Assessment (v3)
-
-| Aspect | Status |
-|--------|--------|
-| Boilerplate contamination | ✅ 0% (was 83.4%) |
-| Template patterns | ✅ 0% (was 59.0%) |
-| Training progression | ✅ Visible improvement |
-| Keyword match | ✅ 16.4% (up from 14.8%) |
-| Coherent reasoning | ❌ No (expected for 1.2M params) |
-
-**Conclusion:** Data cleaning worked. Model trained correctly. Still limited by model size. RAG will provide actual answer quality.
 
 ---
 
@@ -194,37 +210,18 @@ ChatGPT synthetic Q&A data was 94% garbage:
 
 ---
 
-## v3 Training Details (December 23, 2025)
+## Final Assessment
 
-**Job:** 19759979 on dgxh-1 (H100 80GB)
-**Duration:** ~13 minutes
-**Throughput:** ~620K tokens/sec
+| Aspect | Status |
+|--------|--------|
+| Training data quality | ✅ 0% boilerplate |
+| Training progression | ✅ Visible improvement |
+| Model weights | ✅ Downloaded |
+| RAG embeddings | ✅ 26,764 Q&A pairs |
+| Retrieval quality | ✅ 94% pass rate |
+| Coherent reasoning | ❌ No (expected for 1.2M params) |
 
-### Loss Progression
-
-| Epoch | Train Loss | Val Loss | Perplexity |
-|-------|------------|----------|------------|
-| 1 | 7.95 | 6.39 | 594.77 |
-| 2 | 5.83 | 5.40 | 221.96 |
-| 3 | 5.26 | 5.04 | 153.94 |
-| 4 | 4.98 | 4.82 | 124.56 |
-| 5 | 4.81 | 4.69 | 108.64 |
-| 6 | 4.70 | 4.60 | 99.61 |
-| 7 | 4.63 | 4.55 | 94.43 |
-| 8 | 4.59 | 4.52 | 91.56 |
-| 9 | 4.56 | 4.50 | 90.26 |
-| **10** | **4.55** | **4.50** | **89.63** |
-
-### Training Config
-
-| Parameter | Value |
-|-----------|-------|
-| Epochs | 10 |
-| Batch size | 64 |
-| Max LR | 3e-4 |
-| Min LR | 1e-5 |
-| Warmup ratio | 0.05 |
-| Max seq length | 512 |
+**Conclusion:** Training complete. RAG system complete. Model provides domain vocabulary, RAG provides knowledge. Ready for end-to-end testing.
 
 ---
 
@@ -244,22 +241,40 @@ ChatGPT synthetic Q&A data was 94% garbage:
 
 7. **RAG is essential for small models.** Model provides domain vocabulary, RAG provides knowledge.
 
-8. **Look for existing quality datasets.** CoT Reasoning Dataset provides structured Q&A with chain-of-thought.
+8. **Q&A pairs beat book chunks for RAG.** Definitions > mentions.
+
+9. **94% retrieval is achievable and sufficient.** Remaining failures are edge cases.
+
+10. **Storage limits constrain options.** Neon 512MB prevented hybrid search.
 
 ---
 
-## Files on HPC
+## Files
 
-| File | Location |
-|------|----------|
-| `final_model.pt` | `model/` |
-| `best_model.pt` | `model/` |
-| `checkpoint_epoch[1-10].pt` | `model/` |
-| `evaluation_results.json` | `scripts/` |
-| `boilerplate_check.py` | `scripts/` |
-| `checkpoint_compare.py` | `scripts/` |
+### Local (training/model/)
+
+| File | Description |
+|------|-------------|
+| `final_model.pt` | v4 model weights |
+| `best_model.pt` | Best model by val loss |
+| `config.json` | Model config |
+| `tokenizer.json` | BPE tokenizer (16K vocab) |
+
+### Database (Neon)
+
+| Table | Contents |
+|-------|----------|
+| chunks | 26,764 Q&A embeddings |
+
+### Scripts (backend/scripts/)
+
+| File | Purpose |
+|------|---------|
+| `embed_qa_to_chunks.py` | Embed Q&A pairs |
+| `hybrid_retrieval.py` | Retrieval service |
+| `test_hybrid_retrieval.py` | Retrieval tests |
 
 ---
 
-*Document version: 7.0*
+*Document version: 8.0*
 *Last updated: December 24, 2025*

@@ -11,8 +11,11 @@
 
 ## Current Status
 
-**Phase:** 1 (Training Pipeline) - 🔄 REDO REQUIRED
-**Status:** New data source identified. Retraining with expanded dataset.
+**Phase 1:** Training Pipeline - ✅ COMPLETE
+**Phase 2:** RAG System - ✅ COMPLETE
+**Phase 3:** Backend - ⬜ IN PROGRESS
+
+**Next Action:** Connect RAG retrieval to model for end-to-end testing
 
 ---
 
@@ -27,19 +30,19 @@
 | ~~Obtain ChatGPT synthetic Q&A~~ | ❌ Abandoned | 94% garbage. Replaced with Claude Q&A. |
 | Obtain book PDFs | ✅ Done | 5 books |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs across 38 batches |
-| **Obtain CoT Reasoning Dataset** | ✅ Done | **3,000 Q&A pairs with chain-of-thought** |
+| Obtain CoT Reasoning Dataset | ✅ Done | 2,756 Q&A pairs with chain-of-thought |
 
 ### Data Processing & Cleaning
 
 | Task | Status | Output |
 |------|--------|--------|
 | Process Stack Exchange XML | ✅ Done | 10,673 pairs |
-| Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,019 pairs |
+| Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,008 pairs |
 | Extract and clean book texts | ✅ Done | 633,562 words |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs |
-| **Process CoT dataset** | ⬜ Pending | 3,000 pairs |
-| **Combine all sources** | ⬜ Pending | ~27,019 Q&A pairs expected |
-| Train custom BPE tokenizer | ✅ Done | 16K vocab (may need retrain) |
+| Process CoT dataset | ✅ Done | 2,756 pairs |
+| Combine all sources | ✅ Done | 26,764 Q&A pairs |
+| Train custom BPE tokenizer | ✅ Done | 16K vocab |
 
 ### HPC Training
 
@@ -49,58 +52,21 @@
 | Implement transformer architecture | ✅ Done | `scripts/model.py` |
 | Train model v1 (garbage data) | ✅ Done | 3 epochs, perplexity 15.55, 14.8% eval |
 | Investigate data quality issues | ✅ Done | ChatGPT data 94% garbage |
-| Train model v3 (clean data) | ✅ Done | 10 epochs, perplexity 89.63 |
-| Evaluate model v3 | ✅ Done | 16.4% keyword match |
-| Verify data quality | ✅ Done | 0% boilerplate contamination |
-| **Train model v4 (expanded data)** | ⬜ Pending | **Include CoT dataset** |
+| Train model v3 (clean data) | ✅ Done | 10 epochs, perplexity 89.63, 16.4% eval |
+| Train model v4 (expanded data) | ✅ Done | 10 epochs, perplexity 91.80, 11.4% eval |
+| Download model files | ✅ Done | `training/model/` |
 
----
+### RAG System
 
-## New Data Source
-
-### CoT_Reasoning_Quantum_Physics_And_Computing.json
-
-| Property | Value |
-|----------|-------|
-| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
-| Total entries | 3,000 Q&A pairs |
-| Answer length | ~3,000-4,000 chars each |
-| Structure | question, answer, metadata (topic, difficulty, reasoning) |
-| License | MIT (open source) |
-
-**Why include this:**
-- Pre-structured Q&A format
-- Chain-of-thought reasoning included
-- Self-contained explanations
-- Covers wide range: fundamentals, algorithms, hardware, sensors, QED/QCD
-
-**Sample topics:**
-- Wave-particle duality
-- Quantum sensors
-- POVMs
-- Semiconductor spin qubits
-- QED vs QCD
-
----
-
-## Revised Dataset Composition
-
-### v4 Training Data (Planned)
-
-| Source | Count | Est. Tokens | Status |
-|--------|-------|-------------|--------|
-| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
-| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
-| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
-| Books | 633,562 words | ~0.9M | ✅ Ready |
-| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
-
-### Comparison
-
-| Version | Q&A Pairs | Est. Tokens |
-|---------|-----------|-------------|
-| v3 | 24,019 | ~4.4M |
-| v4 (planned) | ~27,019 | ~5.9M |
+| Task | Status | Notes |
+|------|--------|-------|
+| Set up Neon database with pgvector | ✅ Done | Free tier, 512MB limit |
+| Embed book chunks | ✅ Done | 2,847 chunks (later removed) |
+| Test initial retrieval | ✅ Done | 92% pass rate |
+| Embed Q&A pairs | ✅ Done | 26,764 pairs embedded |
+| Test improved retrieval | ✅ Done | 94% pass rate |
+| Remove book chunks | ✅ Done | Q&A pairs are better quality |
+| Attempt hybrid search | ❌ Skipped | Storage limit hit, 94% is sufficient |
 
 ---
 
@@ -126,94 +92,117 @@
 | Eval Score | 16.4% keyword match |
 | Boilerplate | 0% contaminated |
 
-### v4 (Expanded Data - Planned)
+### v4 (Expanded Data - December 24, 2025)
 
 | Metric | Value |
 |--------|-------|
-| Data | ~27K Q&A (Claude + Stack Exchange + CoT) |
-| Epochs | TBD |
-| Perplexity | TBD |
-| Eval Score | TBD |
-| Boilerplate | TBD |
+| Data | 26,764 Q&A (Claude + Stack Exchange + CoT) |
+| Epochs | 10 |
+| Perplexity | 91.80 |
+| Eval Score | 11.4% keyword match |
+| Boilerplate | 0% contaminated |
+
+---
+
+## RAG Results
+
+### Retrieval Quality
+
+| Version | Pass Rate | Notes |
+|---------|-----------|-------|
+| v1 (books only) | 92% | Book chunks mention terms without defining |
+| v2 (books + Q&A) | 94% | Q&A pairs have actual definitions |
+| v2 (Q&A only) | 94% | Removed book chunks, same quality |
+
+### Database Contents
+
+| Content | Count | Status |
+|---------|-------|--------|
+| Book chunks | 0 | Removed (Q&A pairs are better) |
+| Q&A pairs | 26,764 | Active |
+| **Total** | **26,764** | |
+
+### Q&A Sources in RAG
+
+| Source | Count |
+|--------|-------|
+| claude_synthetic | 15,000 |
+| stackexchange | 9,008 |
+| cot_reasoning | 2,756 |
+
+### Remaining Failures (6/100)
+
+| Query | Issue |
+|-------|-------|
+| Computational basis | Retrieved question, not definition |
+| Fredkin gate | Data gap |
+| QAOA | Acronym confusion with QBism |
+| Quantum counting | Retrieved excerpt, not definition |
+| Partial trace | Retrieved related but not definition |
+| Fidelity | Retrieved "layer fidelity" variant |
 
 ---
 
 ## What Is Next
 
-**Immediate next task:** Prepare v4 training data
+**Immediate next task:** End-to-end testing (connect RAG to model)
 
-### Phase 1 (Redo): Training Pipeline
-
-| Task | Priority | Status |
-|------|----------|--------|
-| Process CoT dataset into training format | High | ⬜ Pending |
-| Combine all Q&A sources | High | ⬜ Pending |
-| Verify combined dataset quality | High | ⬜ Pending |
-| Retrain tokenizer (if needed) | Medium | ⬜ Pending |
-| Train model v4 | High | ⬜ Pending |
-| Evaluate model v4 | High | ⬜ Pending |
-
-### Phase 2: RAG System
+### Phase 3: Backend
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Chunk all sources for RAG | High | ⬜ Pending |
-| Generate embeddings (Voyage AI) | High | ⬜ Pending |
-| Set up Neon database with pgvector | High | ✅ Done |
-| Implement retrieval pipeline | High | ⬜ Pending |
-| Test retrieval quality | High | ⬜ Pending |
+| Determine inference approach | High | ⬜ Pending |
+| Implement RAG + model pipeline | High | ⬜ Pending |
+| Create FastAPI endpoints | High | ⬜ Pending |
+| Test end-to-end flow | High | ⬜ Pending |
 
-**RAG Data Sources:**
-1. 5 books (chunked)
-2. Stack Exchange Q&A
-3. CoT Reasoning Dataset Q&A
+### Phase 4: Frontend
 
----
+| Task | Priority | Status |
+|------|----------|--------|
+| Single HTML page | Medium | ⬜ Pending |
+| API integration | Medium | ⬜ Pending |
 
-## Output Files on HPC
+### Phase 5: Deployment
 
-| File | Location | Description |
-|------|----------|-------------|
-| `final_model.pt` | `model/` | v3 model weights (to be replaced by v4) |
-| `best_model.pt` | `model/` | Best model by val loss |
-| `checkpoint_epoch[1-10].pt` | `model/` | v3 checkpoints |
-| `config.json` | `model/` | Model config |
-| `combined_qa_filtered.csv` | `data/` | v3 training data (24,019 pairs) |
-| `tokenizer.json` | `/` | BPE tokenizer (16K vocab) |
-| `evaluation_results.json` | `scripts/` | v3 eval results |
+| Task | Priority | Status |
+|------|----------|--------|
+| Deploy to Railway | Medium | ⬜ Pending |
+| Set spending caps | Medium | ⬜ Pending |
 
 ---
 
 ## Development Phases
 
-### Phase 1: Training Pipeline 🔄 REDO
+### Phase 1: Training Pipeline ✅ COMPLETE
 
 | Task | Status |
 |------|--------|
 | Generate Claude Q&A (15,000 pairs) | ✅ Done |
 | Process Stack Exchange | ✅ Done |
-| **Process CoT dataset (3,000 pairs)** | ⬜ Pending |
-| **Combine all sources** | ⬜ Pending |
-| **Train model v4** | ⬜ Pending |
-| **Evaluate model v4** | ⬜ Pending |
+| Process CoT dataset (2,756 pairs) | ✅ Done |
+| Combine all sources | ✅ Done |
+| Train model v4 | ✅ Done |
+| Evaluate model v4 | ✅ Done |
+| Download model files | ✅ Done |
 
-### Phase 2: RAG System ⬜ NEXT
+### Phase 2: RAG System ✅ COMPLETE
 
 | Task | Status |
 |------|--------|
-| Chunk all sources for RAG | ⬜ Pending |
-| Generate embeddings (Voyage AI) | ⬜ Pending |
 | Set up Neon database with pgvector | ✅ Done |
-| Implement retrieval pipeline | ⬜ Pending |
-| Test retrieval quality | ⬜ Pending |
+| Embed Q&A pairs (26,764) | ✅ Done |
+| Test retrieval quality | ✅ Done |
+| Achieve 94% pass rate | ✅ Done |
 
-### Phase 3: Backend
+### Phase 3: Backend ⬜ IN PROGRESS
 
 | Task | Status |
 |------|--------|
 | FastAPI endpoints | ⬜ Pending |
-| Custom model inference | ⬜ Pending |
+| Model inference | ⬜ Pending |
 | RAG integration | ⬜ Pending |
+| End-to-end testing | ⬜ Pending |
 
 ### Phase 4: Frontend
 
@@ -231,6 +220,25 @@
 
 ---
 
+## Output Files
+
+### Local (training/model/)
+
+| File | Description |
+|------|-------------|
+| `final_model.pt` | v4 model weights |
+| `best_model.pt` | Best model by val loss |
+| `config.json` | Model config |
+| `tokenizer.json` | BPE tokenizer (16K vocab) |
+
+### Database (Neon)
+
+| Table | Contents |
+|-------|----------|
+| chunks | 26,764 Q&A embeddings |
+
+---
+
 ## Key Findings During Implementation
 
 1. **ChatGPT synthetic data was 94% garbage.** Boilerplate in 83%, templates in 59%. Abandoned entirely.
@@ -243,12 +251,14 @@
 
 5. **Small models learn vocabulary, not reasoning.** 1.2M params produces quantum jargon but incoherent answers. RAG essential.
 
-6. **Data quality verification is critical.** Boilerplate check confirmed 0% contamination in v3.
+6. **Data quality verification is critical.** Boilerplate check confirmed 0% contamination.
 
 7. **H100s are fast.** 10 epochs in 13 minutes at 620K tokens/sec.
 
-8. **CoT dataset provides structured reasoning.** 3,000 pairs with chain-of-thought explanations.
+8. **Q&A pairs beat book chunks for RAG.** Book chunks mention terms without defining them. Q&A pairs have actual definitions.
+
+9. **94% retrieval is achievable.** Remaining failures are data gaps and semantic edge cases.
 
 ---
 
-*Document version: 10.0*
+*Document version: 11.0*
