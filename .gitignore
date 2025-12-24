@@ -21,11 +21,10 @@ __pycache__/
 *.onnx
 
 # Data files (large/copyrighted)
-data/raw/books/pdf/
-data/raw/*.csv
-data/raw/books/*.txt
+data/raw/books/
 data/raw/books/cleaned/
-data/processed/
+data/raw/source
+
 
 # Logs
 logs/
@@ -55,3 +54,4 @@ desktop.ini
 dist/
 build/
 *.egg-info/
+data/raw/stackexchange_qa_cleaned.csv

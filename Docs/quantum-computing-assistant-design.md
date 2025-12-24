@@ -55,7 +55,7 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, auto-wake from cold start |
 | Custom LLM | Trained transformer (~1.2M params) | Decoder-only, Chinchilla-optimal |
-| Training Data | Claude Q&A + Stack Exchange + Books | ~5.9M tokens |
+| Training Data | Claude Q&A + Stack Exchange + Books | ~4.4M tokens |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
@@ -69,93 +69,65 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | Type | Decoder-only (GPT-style) | Standard for text generation |
-| Parameters | ~1.2M | Chinchilla-optimal for ~5.9M tokens |
+| Parameters | ~1.2M | Chinchilla-optimal for dataset |
 | Vocabulary size | 16,000 | Custom BPE trained on corpus |
 | Context length | 512 tokens | Sufficient for Q&A format |
 | Layers | 4 | Scaled for 1.2M params |
 | Attention heads | 4 | 16 dim per head |
 | Embedding dimension | 64 | Scaled for 1.2M params |
-| Token:param ratio | ~5:1 | Conservative for quality |
 
-### Training Data Sources
+### Training Results
 
-> **✅ DATA GENERATION COMPLETE (December 23, 2025)**
+> **✅ PHASE 1 COMPLETE (December 24, 2025)**
 > 
-> - ChatGPT synthetic data was **abandoned** (94% garbage)
-> - Claude Q&A generation **complete**: 15,000 pairs across 38 batches
-> - Ready for dataset assembly and retraining
+> - Model v3 trained: 10 epochs, perplexity 89.63
+> - Evaluation: **16.4% keyword match** (up from v1's 14.8%)
+> - Data quality verified: **0% boilerplate contamination**
+> - Ready for Phase 2: RAG implementation
+
+| Metric | v1 (Garbage) | v3 (Clean) |
+|--------|--------------|------------|
+| Eval Score | 14.8% | **16.4%** |
+| Boilerplate | 83.4% | **0%** |
+| Epochs | 3 | 10 |
+| Perplexity | 15.55 | 89.63 |
+
+### Training Data
 
 **Final Dataset:**
 
 | Source | Count | Est. Tokens | Status |
 |--------|-------|-------------|--------|
 | Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
-| Stack Exchange QC | 8,858 pairs | ~1.2M | ✅ Cleaned |
-| 5 Books (3x upsampled) | 11,493 chunks | ~2.4M | ✅ Ready |
-| **Total** | **~35,351** | **~5.9M** | |
+| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Complete |
+| Books | 633,562 words | ~0.9M | ✅ Complete |
+| **Total** | **24,019 Q&A** | **~4.4M** | ✅ Trained |
 
 ### Claude Q&A Generation Details
 
 | Parameter | Value |
 |-----------|-------|
 | Total pairs | **15,000** |
-| Batches | 38 (Phase 1: 25 × 400, Phase 2: 12 × 400 + 1 × 200) |
-| Unique questions | 15,000 (100%) |
-| Verification | 8-chunk per batch with index checking |
-| Output files | `claude_qa_batch[1-38].csv` |
+| Batches | 38 |
+| Unique questions | 100% |
+| Phase 1 (topics) | Batches 1-25 |
+| Phase 2 (formats) | Batches 26-38 |
 
-**Topics Covered (38 Batches):**
+**Topics Covered:**
+- Fundamentals, Algorithms, Hardware, Error Correction
+- Chemistry, ML, Cryptography, Complexity
+- Quantum Optics, Superconducting, Communication
+- Trapped Ion, Neutral Atom, Photonic
 
-**Phase 1 - Topic-Based (Batches 1-25):**
-| Batches | Topics |
-|---------|--------|
-| 1-5 | Fundamentals, Algorithms, Hardware, Error Correction, Chemistry |
-| 6-10 | ML, Cryptography, Complexity, Many-body, Topological |
-| 11-15 | Simulation, Annealing, Control, Metrology, Sensing |
-| 16-20 | Thermodynamics, Foundations, Optics, Superconducting, Communication |
-| 21-22 | Trapped Ion, Neutral Atom |
-| 23 | Photonic Quantum Computing |
-| 24 | Quantum Software and Programming |
-| 25 | Quantum Applications and Industry |
-
-**Phase 2 - Question Format-Based (Batches 26-38):**
-| Batches | Question Formats |
-|---------|------------------|
-| 26-27 | How/Why questions |
-| 28-29 | What-if, Troubleshooting |
-| 30-31 | Best practices, Definitions |
-| 32-33 | Conditional, Possibility questions |
-| 34-35 | Fact-checking, Choice questions |
-| 36-37 | Comparisons, Recommendations |
-| 38 | Mixed final questions |
-
-**Books:**
-
-| Book | Author | Cleaned Words |
-|------|--------|---------------|
-| Introduction to Classical and Quantum Computing | Thomas G. Wong | 92,947 |
-| Quantum Computing for Everyone | Chris Bernhardt | 60,058 |
-| Quantum Computing Explained for Beginners | Pantheon Space Academy | 64,619 |
-| Quantum Computation and Quantum Information (10th Anniversary Ed.) | Nielsen & Chuang | 304,281 |
-| Quantum Computing: An Applied Approach (2nd ed.) | Jack D. Hidary | 111,642 |
-
-**Licensing:**
-- Claude Q&A: Self-generated via Pro subscription
-- Stack Exchange: Personal use only, no LLM distribution
-- Books: Educational/personal use only
-
-Model weights kept private.
+**Question Formats:**
+- How/Why questions
+- What-if, Troubleshooting
+- Comparisons, Recommendations
+- Definitions, Fact-checking
 
 ### Tokenizer
 
-**Approach:** Custom BPE tokenizer (16K vocab) trained on the corpus.
-
-Why custom over GPT-2 tokenizer:
-- Shows complete "from scratch" pipeline (portfolio value)
-- Optimized for QC terminology
-- Smaller vocab (16K) matches smaller model
-
-#### Special Tokens
+**Approach:** Custom BPE tokenizer (16K vocab) trained on clean corpus.
 
 | Token | ID | Purpose |
 |-------|----|---------|
@@ -169,19 +141,8 @@ Why custom over GPT-2 tokenizer:
 |----------|---------|
 | HPC | Oregon State University |
 | GPU | NVIDIA H100 80GB |
-| Partition | dgxh (4-hour limit) |
-| Alternative partition | dgx2 (16x V100, 7-day limit) |
-| Storage | 1.5 TB HPC share quota |
-
-### Evaluation
-
-#### Multi-Tier Approach
-
-| Tier | Metric | Purpose |
-|------|--------|---------|
-| Training | Validation loss + perplexity | Monitor training, catch overfitting |
-| Quality | QC test set (50-100 questions) | Measure actual capability |
-| Portfolio | Examples + honest limitations | Demonstrate understanding |
+| Duration | ~13 minutes for 10 epochs |
+| Throughput | ~620K tokens/sec |
 
 ---
 
@@ -189,7 +150,9 @@ Why custom over GPT-2 tokenizer:
 
 ### Purpose
 
-The custom 1.2M parameter model has limited knowledge capacity. RAG compensates by retrieving relevant document chunks at query time, providing context the small model couldn't memorize.
+The custom 1.2M parameter model has limited knowledge capacity. RAG compensates by retrieving relevant document chunks at query time.
+
+**Key insight from training:** Small models learn vocabulary, not reasoning. The model outputs quantum terminology but answers are incoherent. RAG provides the actual knowledge at inference time.
 
 ### Chunking Strategy
 
@@ -205,11 +168,10 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 |--------|---------|
 | Primary | Semantic search (pgvector cosine similarity) |
 | Top-k | 5 chunks |
-| Reranking | TBD (may not be needed for MVP) |
 
 ### Data Sources
 
-RAG retrieves from the same 5 books used in training, but with different chunking:
+RAG retrieves from 5 books:
 
 | Book | Author |
 |------|--------|
@@ -219,20 +181,11 @@ RAG retrieves from the same 5 books used in training, but with different chunkin
 | Quantum Computation and Quantum Information | Nielsen & Chuang |
 | Quantum Computing: An Applied Approach | Hidary |
 
-**Why books serve dual purpose (training + RAG):**
-
-| Use | Chunking Strategy | Purpose |
-|-----|-------------------|---------|
-| Training | CLM chunks, 3x upsampled with offset | Teaches vocabulary and patterns |
-| RAG | ~500 token semantic chunks with overlap | Provides specific facts at query time |
-
-This is not redundant. Training and RAG serve complementary roles: training teaches the model how to speak about quantum computing, while RAG injects specific knowledge the small model couldn't memorize.
+**Dual purpose:** Books used for both training (teaches vocabulary) and RAG (provides knowledge at inference).
 
 ---
 
 ## Inference Pipeline
-
-### Query Flow
 
 ```
 1. User sends question
@@ -244,10 +197,7 @@ This is not redundant. Training and RAG serve complementary roles: training teac
 3. Retrieve top-k relevant chunks (pgvector)
               │
               ▼
-4. Build prompt:
-   - System: "You are a quantum computing assistant..."
-   - Context: Retrieved chunks
-   - User: Current question
+4. Build prompt with context
               │
               ▼
 5. Run inference: Custom transformer
@@ -269,7 +219,7 @@ This is not redundant. Training and RAG serve complementary roles: training teac
 
 ### Request/Response
 
-POST /query Request:
+POST /query:
 ```json
 {
   "question": "What is quantum entanglement?"
@@ -283,8 +233,7 @@ Response:
   "sources": [
     {
       "document": "Introduction to Quantum Computing",
-      "section": "Chapter 3: Entanglement",
-      "excerpt": "..."
+      "section": "Chapter 3: Entanglement"
     }
   ]
 }
@@ -294,9 +243,7 @@ Response:
 
 ## UI Design
 
-### Layout
-
-Single HTML page with minimal design. Self-contained (no framework dependencies).
+Single HTML page with minimal design.
 
 | Element | Description |
 |---------|-------------|
@@ -304,13 +251,6 @@ Single HTML page with minimal design. Self-contained (no framework dependencies)
 | Input area | Text input for questions |
 | Response area | Model's answer with sources |
 | Footer | Disclaimer, portfolio link |
-
-### Style Direction
-
-- Clean, minimal, professional
-- Light mode
-- Monospace font for technical terms
-- No external CSS frameworks (vanilla CSS)
 
 ---
 
@@ -323,7 +263,6 @@ Single HTML page with minimal design. Self-contained (no framework dependencies)
 | Plan | Hobby ($5/month) |
 | Structure | Monorepo (backend serves frontend) |
 | Always on | Yes |
-| URL | TBD (your-app.up.railway.app) |
 
 ### Environment Variables
 
@@ -332,13 +271,6 @@ Single HTML page with minimal design. Self-contained (no framework dependencies)
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
 | MODEL_PATH | Path to custom model weights |
-
-### Model Deployment
-
-The trained model weights (~5MB for ~1.2M params) will be:
-- Stored in the Railway container
-- Loaded into memory on startup
-- Kept in memory (Railway always-on)
 
 ---
 
@@ -349,7 +281,7 @@ The trained model weights (~5MB for ~1.2M params) will be:
 | Railway (hosting) | $5 |
 | Voyage AI (embeddings) | $0 (free tier) |
 | Neon (database) | $0 (free tier) |
-| HPC (training) | $0 (one-time, university resource) |
+| HPC (training) | $0 (one-time) |
 | **Total** | **$5/month** |
 
 ---
@@ -370,14 +302,12 @@ The trained model weights (~5MB for ~1.2M params) will be:
 
 | Feature | Reason |
 |---------|--------|
-| Caching | Low traffic, adds complexity for minimal benefit |
-| Comparison mode | Not needed for portfolio demonstration |
-| User level selection | 1.2M model too small to adjust tone |
+| Caching | Low traffic, adds complexity |
+| Comparison mode | Not needed for portfolio |
+| User level selection | 1.2M model too small |
 | Fallback LLM | Custom model is the portfolio piece |
-
-These can be added later if needed.
 
 ---
 
-*Document version: 6.0*
+*Document version: 7.0*
 *Last updated: December 24, 2025*
