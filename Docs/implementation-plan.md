@@ -11,8 +11,8 @@
 
 ## Current Status
 
-**Phase:** 1 (Training Pipeline) - ✅ COMPLETE
-**Status:** Model v3 trained, evaluated, and verified. Ready for Phase 2.
+**Phase:** 1 (Training Pipeline) - 🔄 REDO REQUIRED
+**Status:** New data source identified. Retraining with expanded dataset.
 
 ---
 
@@ -26,7 +26,8 @@
 | Download Stack Exchange QC dump | ✅ Done | 28K total posts |
 | ~~Obtain ChatGPT synthetic Q&A~~ | ❌ Abandoned | 94% garbage. Replaced with Claude Q&A. |
 | Obtain book PDFs | ✅ Done | 5 books |
-| **Generate Claude Q&A** | ✅ Done | **15,000 pairs across 38 batches** |
+| Generate Claude Q&A | ✅ Done | 15,000 pairs across 38 batches |
+| **Obtain CoT Reasoning Dataset** | ✅ Done | **3,000 Q&A pairs with chain-of-thought** |
 
 ### Data Processing & Cleaning
 
@@ -35,9 +36,10 @@
 | Process Stack Exchange XML | ✅ Done | 10,673 pairs |
 | Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,019 pairs |
 | Extract and clean book texts | ✅ Done | 633,562 words |
-| **Generate Claude Q&A** | ✅ Done | 15,000 pairs |
-| Combine Q&A sources | ✅ Done | 24,019 pairs |
-| Train custom BPE tokenizer | ✅ Done | 16K vocab |
+| Generate Claude Q&A | ✅ Done | 15,000 pairs |
+| **Process CoT dataset** | ⬜ Pending | 3,000 pairs |
+| **Combine all sources** | ⬜ Pending | ~27,019 Q&A pairs expected |
+| Train custom BPE tokenizer | ✅ Done | 16K vocab (may need retrain) |
 
 ### HPC Training
 
@@ -47,9 +49,58 @@
 | Implement transformer architecture | ✅ Done | `scripts/model.py` |
 | Train model v1 (garbage data) | ✅ Done | 3 epochs, perplexity 15.55, 14.8% eval |
 | Investigate data quality issues | ✅ Done | ChatGPT data 94% garbage |
-| **Train model v3 (clean data)** | ✅ Done | **10 epochs, perplexity 89.63** |
-| **Evaluate model v3** | ✅ Done | **16.4% keyword match** |
-| **Verify data quality** | ✅ Done | **0% boilerplate contamination** |
+| Train model v3 (clean data) | ✅ Done | 10 epochs, perplexity 89.63 |
+| Evaluate model v3 | ✅ Done | 16.4% keyword match |
+| Verify data quality | ✅ Done | 0% boilerplate contamination |
+| **Train model v4 (expanded data)** | ⬜ Pending | **Include CoT dataset** |
+
+---
+
+## New Data Source
+
+### CoT_Reasoning_Quantum_Physics_And_Computing.json
+
+| Property | Value |
+|----------|-------|
+| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
+| Total entries | 3,000 Q&A pairs |
+| Answer length | ~3,000-4,000 chars each |
+| Structure | question, answer, metadata (topic, difficulty, reasoning) |
+| License | MIT (open source) |
+
+**Why include this:**
+- Pre-structured Q&A format
+- Chain-of-thought reasoning included
+- Self-contained explanations
+- Covers wide range: fundamentals, algorithms, hardware, sensors, QED/QCD
+
+**Sample topics:**
+- Wave-particle duality
+- Quantum sensors
+- POVMs
+- Semiconductor spin qubits
+- QED vs QCD
+
+---
+
+## Revised Dataset Composition
+
+### v4 Training Data (Planned)
+
+| Source | Count | Est. Tokens | Status |
+|--------|-------|-------------|--------|
+| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
+| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
+| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
+| Books | 633,562 words | ~0.9M | ✅ Ready |
+| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
+
+### Comparison
+
+| Version | Q&A Pairs | Est. Tokens |
+|---------|-----------|-------------|
+| v3 | 24,019 | ~4.4M |
+| v4 (planned) | ~27,019 | ~5.9M |
 
 ---
 
@@ -72,115 +123,50 @@
 | Data | 24K Q&A (Claude + Stack Exchange) |
 | Epochs | 10 |
 | Perplexity | 89.63 |
-| Eval Score | **16.4% keyword match** |
-| Boilerplate | **0% contaminated** |
+| Eval Score | 16.4% keyword match |
+| Boilerplate | 0% contaminated |
 
-### v3 Loss Progression
+### v4 (Expanded Data - Planned)
 
-| Epoch | Train Loss | Val Loss | Perplexity |
-|-------|------------|----------|------------|
-| 1 | 7.95 | 6.39 | 594.77 |
-| 5 | 4.81 | 4.69 | 108.64 |
-| **10** | **4.55** | **4.50** | **89.63** |
-
----
-
-## v3 Evaluation Results
-
-### Overall Score
-**16.4% keyword match** (50 questions)
-
-### By Category
-
-| Category | v1 | v3 | Change |
-|----------|----|----|--------|
-| basics | 32.6% | 32.4% | -0.2% |
-| entanglement | 9.0% | 27.0% | **+18.0%** |
-| superposition | 9.0% | 20.7% | **+11.7%** |
-| measurement | 4.2% | 11.1% | **+6.9%** |
-| gates | 20.8% | 15.0% | -5.8% |
-| algorithms | 18.0% | 13.0% | -5.0% |
-| hardware | 8.0% | 4.0% | -4.0% |
-| applications | 6.7% | 6.7% | 0% |
-
-### By Difficulty
-
-| Difficulty | v3 Score | Count |
-|------------|----------|-------|
-| easy | 23.0% | 16 |
-| medium | 14.7% | 26 |
-| hard | 8.8% | 8 |
-
-### Quality Flags
-
-| Metric | v1 | v3 |
-|--------|----|----|
-| Repetitive outputs | Many | 2 |
-| Boilerplate phrases | Heavy | None |
-
----
-
-## v3 Verification Results
-
-### Boilerplate Detection
-
-| Metric | v1 | v3 |
-|--------|----|----|
-| Boilerplate phrases | 83.4% | **0.0%** |
-| Template patterns | 59.0% | **0.0%** |
-
-**Result:** SUCCESS - No contamination detected in v3 outputs.
-
-### Checkpoint Comparison (Epoch 1 → 5 → 10)
-
-| Question | Epoch 1 | Epoch 5 | Epoch 10 |
-|----------|---------|---------|----------|
-| What is a qubit? | "ﬁnal(." | Forming sentences | Complete sentences |
-| What is superposition? | "maybe a yes the a uniti" | Broken but quantum terms | Proper terminology |
-| What is entanglement? | Garbage fragments | Some structure | Coherent attempts |
-
-**Result:** Clear progression across epochs. Training worked correctly.
-
----
-
-## Final Assessment
-
-| Aspect | v1 (Garbage) | v3 (Clean) | Status |
-|--------|--------------|------------|--------|
-| Boilerplate phrases | 83.4% | 0% | ✅ Fixed |
-| Template patterns | 59.0% | 0% | ✅ Fixed |
-| Keyword match | 14.8% | 16.4% | ✅ Improved |
-| Repetitive flags | Many | 2 | ✅ Fixed |
-| Coherent reasoning | No | No | Expected (1.2M params) |
-
-**Conclusion:** Data cleaning worked. Model trained correctly. Limited by size. RAG essential for usability.
-
----
-
-## Final Dataset Composition
-
-| Source | Count | Est. Tokens | Status |
-|--------|-------|-------------|--------|
-| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
-| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Complete |
-| Books | 633,562 words | ~0.9M | ✅ Complete |
-| **Total** | **24,019 Q&A** | **~4.4M** | ✅ Trained |
+| Metric | Value |
+|--------|-------|
+| Data | ~27K Q&A (Claude + Stack Exchange + CoT) |
+| Epochs | TBD |
+| Perplexity | TBD |
+| Eval Score | TBD |
+| Boilerplate | TBD |
 
 ---
 
 ## What Is Next
 
-**Immediate next task:** Phase 2 - RAG System
+**Immediate next task:** Prepare v4 training data
+
+### Phase 1 (Redo): Training Pipeline
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Process CoT dataset into training format | High | ⬜ Pending |
+| Combine all Q&A sources | High | ⬜ Pending |
+| Verify combined dataset quality | High | ⬜ Pending |
+| Retrain tokenizer (if needed) | Medium | ⬜ Pending |
+| Train model v4 | High | ⬜ Pending |
+| Evaluate model v4 | High | ⬜ Pending |
 
 ### Phase 2: RAG System
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Chunk books for RAG (~500 tokens, semantic) | High | ⬜ Pending |
+| Chunk all sources for RAG | High | ⬜ Pending |
 | Generate embeddings (Voyage AI) | High | ⬜ Pending |
-| Set up Neon database with pgvector | High | ⬜ Pending |
+| Set up Neon database with pgvector | High | ✅ Done |
 | Implement retrieval pipeline | High | ⬜ Pending |
-| Test retrieval quality | Medium | ⬜ Pending |
+| Test retrieval quality | High | ⬜ Pending |
+
+**RAG Data Sources:**
+1. 5 books (chunked)
+2. Stack Exchange Q&A
+3. CoT Reasoning Dataset Q&A
 
 ---
 
@@ -188,35 +174,36 @@
 
 | File | Location | Description |
 |------|----------|-------------|
-| `final_model.pt` | `model/` | Final model weights (v3, epoch 10) |
+| `final_model.pt` | `model/` | v3 model weights (to be replaced by v4) |
 | `best_model.pt` | `model/` | Best model by val loss |
-| `checkpoint_epoch[1-10].pt` | `model/` | All epoch checkpoints |
+| `checkpoint_epoch[1-10].pt` | `model/` | v3 checkpoints |
 | `config.json` | `model/` | Model config |
-| `combined_qa_filtered.csv` | `data/` | 24,019 Q&A pairs |
+| `combined_qa_filtered.csv` | `data/` | v3 training data (24,019 pairs) |
 | `tokenizer.json` | `/` | BPE tokenizer (16K vocab) |
-| `evaluation_results.json` | `scripts/` | Full eval results |
+| `evaluation_results.json` | `scripts/` | v3 eval results |
 
 ---
 
 ## Development Phases
 
-### Phase 1: Training Pipeline ✅ COMPLETE
+### Phase 1: Training Pipeline 🔄 REDO
 
 | Task | Status |
 |------|--------|
 | Generate Claude Q&A (15,000 pairs) | ✅ Done |
-| Combine final dataset | ✅ Done |
-| Train model v3 (10 epochs) | ✅ Done |
-| Evaluate model (16.4%) | ✅ Done |
-| Verify quality (0% boilerplate) | ✅ Done |
+| Process Stack Exchange | ✅ Done |
+| **Process CoT dataset (3,000 pairs)** | ⬜ Pending |
+| **Combine all sources** | ⬜ Pending |
+| **Train model v4** | ⬜ Pending |
+| **Evaluate model v4** | ⬜ Pending |
 
 ### Phase 2: RAG System ⬜ NEXT
 
 | Task | Status |
 |------|--------|
-| Chunk books for RAG | ⬜ Pending |
+| Chunk all sources for RAG | ⬜ Pending |
 | Generate embeddings (Voyage AI) | ⬜ Pending |
-| Set up Neon database with pgvector | ⬜ Pending |
+| Set up Neon database with pgvector | ✅ Done |
 | Implement retrieval pipeline | ⬜ Pending |
 | Test retrieval quality | ⬜ Pending |
 
@@ -260,6 +247,8 @@
 
 7. **H100s are fast.** 10 epochs in 13 minutes at 620K tokens/sec.
 
+8. **CoT dataset provides structured reasoning.** 3,000 pairs with chain-of-thought explanations.
+
 ---
 
-*Document version: 9.0*
+*Document version: 10.0*

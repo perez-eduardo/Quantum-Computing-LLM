@@ -1,0 +1,17 @@
+# Web framework
+fastapi
+uvicorn
+
+# Database
+psycopg2-binary
+asyncpg
+
+# Embeddings
+voyageai
+
+# Model inference
+torch
+numpy
+
+# Utilities
+python-dotenv

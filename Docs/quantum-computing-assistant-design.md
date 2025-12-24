@@ -55,7 +55,7 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, auto-wake from cold start |
 | Custom LLM | Trained transformer (~1.2M params) | Decoder-only, Chinchilla-optimal |
-| Training Data | Claude Q&A + Stack Exchange + Books | ~4.4M tokens |
+| Training Data | Claude Q&A + Stack Exchange + CoT Dataset + Books | ~5.9M tokens |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
@@ -76,38 +76,47 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 | Attention heads | 4 | 16 dim per head |
 | Embedding dimension | 64 | Scaled for 1.2M params |
 
-### Training Results
+### Training Status
 
-> **✅ PHASE 1 COMPLETE (December 24, 2025)**
+> **🔄 PHASE 1 REDO (December 24, 2025)**
 > 
-> - Model v3 trained: 10 epochs, perplexity 89.63
-> - Evaluation: **16.4% keyword match** (up from v1's 14.8%)
-> - Data quality verified: **0% boilerplate contamination**
-> - Ready for Phase 2: RAG implementation
-
-| Metric | v1 (Garbage) | v3 (Clean) |
-|--------|--------------|------------|
-| Eval Score | 14.8% | **16.4%** |
-| Boilerplate | 83.4% | **0%** |
-| Epochs | 3 | 10 |
-| Perplexity | 15.55 | 89.63 |
+> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
+> - Retraining with expanded dataset required
+> - Target: Model v4 with ~27K Q&A pairs
 
 ### Training Data
 
-**Final Dataset:**
+**v4 Dataset (Planned):**
 
 | Source | Count | Est. Tokens | Status |
 |--------|-------|-------------|--------|
-| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Complete |
-| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Complete |
-| Books | 633,562 words | ~0.9M | ✅ Complete |
-| **Total** | **24,019 Q&A** | **~4.4M** | ✅ Trained |
+| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
+| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
+| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
+| Books | 633,562 words | ~0.9M | ✅ Ready |
+| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
+
+### CoT Reasoning Dataset
+
+| Property | Value |
+|----------|-------|
+| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
+| Total entries | 3,000 Q&A pairs |
+| Answer length | ~3,000-4,000 chars each |
+| Structure | question, answer, metadata (topic, difficulty, reasoning) |
+| License | MIT (open source) |
+
+**Why include:**
+- Chain-of-thought reasoning in answers
+- Self-contained explanations
+- Wide topic coverage (fundamentals to advanced)
+- Pre-structured Q&A format
 
 ### Claude Q&A Generation Details
 
 | Parameter | Value |
 |-----------|-------|
-| Total pairs | **15,000** |
+| Total pairs | 15,000 |
 | Batches | 38 |
 | Unique questions | 100% |
 | Phase 1 (topics) | Batches 1-25 |
@@ -141,7 +150,7 @@ The app itself is secondary. Recruiters evaluate the code, architecture decision
 |----------|---------|
 | HPC | Oregon State University |
 | GPU | NVIDIA H100 80GB |
-| Duration | ~13 minutes for 10 epochs |
+| Duration | ~13 minutes for 10 epochs (v3) |
 | Throughput | ~620K tokens/sec |
 
 ---
@@ -160,7 +169,16 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 |-----------|-------|
 | Chunk size | ~500 tokens |
 | Overlap | ~50-100 tokens |
-| Metadata | Source document, section, chunk index |
+| Metadata | Source, section, chunk index |
+
+### Embedding Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Model | voyage-3.5-lite |
+| Dimensions | 1024 |
+| input_type (documents) | "document" |
+| input_type (queries) | "query" |
 
 ### Search Strategy
 
@@ -169,9 +187,15 @@ The custom 1.2M parameter model has limited knowledge capacity. RAG compensates 
 | Primary | Semantic search (pgvector cosine similarity) |
 | Top-k | 5 chunks |
 
-### Data Sources
+### RAG Data Sources
 
-RAG retrieves from 5 books:
+| Source | Type | Count/Size |
+|--------|------|------------|
+| **Books** | Chunked text | 5 books, ~2,847 chunks |
+| **Stack Exchange** | Q&A pairs | 9,019 pairs |
+| **CoT Reasoning Dataset** | Q&A pairs | 3,000 pairs |
+
+#### Books
 
 | Book | Author |
 |------|--------|
@@ -191,7 +215,7 @@ RAG retrieves from 5 books:
 1. User sends question
               │
               ▼
-2. Generate query embedding (Voyage AI)
+2. Generate query embedding (Voyage AI, input_type="query")
               │
               ▼
 3. Retrieve top-k relevant chunks (pgvector)
@@ -291,10 +315,10 @@ Single HTML page with minimal design.
 | Provider | Hard Cap | Action |
 |----------|----------|--------|
 | Railway | $10 | Settings > Usage > Hard limit |
-| Voyage AI | N/A | 200M token ceiling |
+| Voyage AI | $5 prepaid | Auto-recharge OFF |
 | Neon | N/A | Auto-stops at 100 compute hours |
 
-**Maximum exposure: $10/month**
+**Maximum exposure: $15/month**
 
 ---
 
@@ -309,5 +333,5 @@ Single HTML page with minimal design.
 
 ---
 
-*Document version: 7.0*
+*Document version: 8.0*
 *Last updated: December 24, 2025*

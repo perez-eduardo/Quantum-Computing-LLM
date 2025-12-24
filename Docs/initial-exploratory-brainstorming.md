@@ -69,23 +69,30 @@ The custom transformer shows recruiters you understand ML internals. RAG compens
 
 ### Training Data
 
-> **✅ PHASE 1 COMPLETE (December 24, 2025)**
+> **🔄 PHASE 1 REDO (December 24, 2025)**
 > 
-> - ChatGPT synthetic data **abandoned** (94% garbage)
-> - Claude Q&A generation **complete**: 15,000 pairs
-> - Model v3 **trained**: 10 epochs, perplexity 89.63
-> - Model v3 **evaluated**: 16.4% keyword match
-> - Data quality **verified**: 0% boilerplate contamination
-> - **Ready for Phase 2: RAG implementation**
+> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
+> - Retraining with expanded dataset required
+> - Target: Model v4 with ~27K Q&A pairs (~5.9M tokens)
 
-#### Final Dataset
+#### v4 Dataset (Planned)
 
 | Source | Count | Status |
 |--------|-------|--------|
-| Claude Q&A | 15,000 pairs | ✅ Complete |
-| Stack Exchange (filtered) | 9,019 pairs | ✅ Complete |
-| Books | 633,562 words | ✅ Complete |
-| **Total** | **24,019 Q&A** | ✅ Trained |
+| Claude Q&A | 15,000 pairs | ✅ Ready |
+| Stack Exchange (filtered) | 9,019 pairs | ✅ Ready |
+| **CoT Reasoning Dataset** | **3,000 pairs** | ✅ Ready |
+| Books | 633,562 words | ✅ Ready |
+| **Total** | **~27,019 Q&A** | ⬜ Combine |
+
+#### CoT Reasoning Dataset
+
+| Property | Value |
+|----------|-------|
+| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
+| Entries | 3,000 Q&A pairs |
+| Features | Chain-of-thought reasoning, metadata (topic, difficulty) |
+| License | MIT |
 
 ### Compute: Oregon State University HPC
 
@@ -124,10 +131,15 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 - [x] Upsample books 3x
 - [x] Abandon ChatGPT data (94% garbage)
 - [x] Generate Claude Q&A (15,000 pairs)
-- [x] Combine final dataset
-- [x] Retrain with 10 epochs
+- [x] Combine final dataset (v3)
+- [x] Train v3 with 10 epochs
 - [x] Evaluate model (16.4% keyword match)
 - [x] Verify data quality (0% boilerplate)
+- [x] Obtain CoT Reasoning Dataset (3,000 pairs)
+- [ ] Process CoT dataset
+- [ ] Combine v4 dataset
+- [ ] Train model v4
+- [ ] Evaluate model v4
 - [ ] Integrate with RAG system
 
 ---
@@ -149,6 +161,10 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 - Without card: only 3 requests/minute (unusable)
 - With card: 2000 RPM, still uses free tokens
 
+**Cost protection:**
+- Prepaid $5 credits with auto-recharge OFF
+- Acts as hard spending cap
+
 ---
 
 ### Database: Neon Free Tier
@@ -164,6 +180,10 @@ ssh pereze4@submit-b.hpc.engr.oregonstate.edu
 - Suspends after 5 minutes of inactivity
 - Cold start latency: ~500ms-1 second
 - Auto-wakes on first connection
+
+**Setup complete:**
+- pgvector extension enabled
+- Connection tested
 
 ---
 
@@ -224,8 +244,9 @@ FastAPI serves the frontend as static files. Single service, single URL.
 4. **Inspect data at every step** - Don't process garbage through your pipeline
 5. **Don't trust synthetic data blindly** - ChatGPT generated 94% garbage
 6. **Verify after training** - Run boilerplate and quality checks on outputs
+7. **Look for existing quality datasets** - CoT Reasoning Dataset provides structured Q&A with reasoning
 
 ---
 
-*Document version: 4.0*
+*Document version: 5.0*
 *Last updated: December 24, 2025*

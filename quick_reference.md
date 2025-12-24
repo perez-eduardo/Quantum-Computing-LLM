@@ -6,7 +6,7 @@
 cd E:\Personal_projects\Quantum-Computing-LLM
 ```
 
-No virtual environment needed for local (just running scp commands).
+.\venv\Scripts\activate
 
 ---
 

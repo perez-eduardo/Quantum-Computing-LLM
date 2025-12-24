@@ -4,14 +4,11 @@
 **Updated:** December 24, 2025
 **Purpose:** Document findings from model training and evaluation
 
-> **✅ PHASE 1 COMPLETE (December 24, 2025)**
+> **🔄 PHASE 1 REDO (December 24, 2025)**
 > 
-> - ChatGPT data abandoned (94% garbage)
-> - Claude Q&A generation complete: 15,000 pairs
-> - Model v3 trained: 10 epochs, perplexity 89.63
-> - Model v3 evaluated: **16.4% keyword match**
-> - Data quality verified: **0% boilerplate contamination**
-> - **Ready for Phase 2: RAG implementation**
+> - New data source identified: CoT Reasoning Dataset (3,000 pairs)
+> - Retraining with expanded dataset required
+> - Target: Model v4 with ~27K Q&A pairs
 
 ---
 
@@ -31,6 +28,46 @@
 | Template patterns | 59.0% | **0%** | **Fixed** |
 
 **Why v3 perplexity is higher:** v1's low perplexity came from memorizing repetitive garbage. v3 trained on diverse, clean data has higher perplexity but better output quality.
+
+---
+
+## v4 Training Plan (December 24, 2025)
+
+### New Data Source
+
+**CoT_Reasoning_Quantum_Physics_And_Computing.json**
+
+| Property | Value |
+|----------|-------|
+| Location | `data/raw/source/CoT_Reasoning_Quantum_Physics_And_Computing.json` |
+| Total entries | 3,000 Q&A pairs |
+| Answer length | ~3,000-4,000 chars each |
+| Structure | question, answer, metadata (topic, difficulty, reasoning) |
+| License | MIT (open source) |
+
+**Why include:**
+- Chain-of-thought reasoning in answers
+- Self-contained explanations
+- Wide topic coverage
+- Pre-structured Q&A format
+
+### v4 Dataset Composition
+
+| Source | Count | Est. Tokens | Status |
+|--------|-------|-------------|--------|
+| Claude Q&A | 15,000 pairs | ~2.3M | ✅ Ready |
+| Stack Exchange (filtered) | 9,019 pairs | ~1.2M | ✅ Ready |
+| **CoT Reasoning Dataset** | **3,000 pairs** | **~1.5M** | ✅ Ready |
+| Books | 633,562 words | ~0.9M | ✅ Ready |
+| **Total** | **~27,019 Q&A** | **~5.9M** | ⬜ Combine |
+
+### Version Comparison
+
+| Version | Q&A Pairs | Est. Tokens | Status |
+|---------|-----------|-------------|--------|
+| v1 | 96K (garbage) | N/A | ❌ Abandoned |
+| v3 | 24,019 | ~4.4M | ✅ Trained |
+| v4 | ~27,019 | ~5.9M | ⬜ Pending |
 
 ---
 
@@ -118,7 +155,7 @@ Compared outputs from epoch 1, 5, and 10 to verify training progression.
 
 ---
 
-## Final Assessment
+## Final Assessment (v3)
 
 | Aspect | Status |
 |--------|--------|
@@ -191,29 +228,6 @@ ChatGPT synthetic Q&A data was 94% garbage:
 
 ---
 
-## Dataset Summary
-
-### Final Composition
-
-| Source | Count | Status |
-|--------|-------|--------|
-| Claude Q&A | 15,000 pairs | ✅ Complete |
-| Stack Exchange (filtered) | 9,019 pairs | ✅ Complete |
-| Books | 633,562 words | ✅ Complete |
-| **Total** | **24,019 Q&A** | ✅ Trained |
-
-### Claude Q&A Details
-
-| Metric | Value |
-|--------|-------|
-| Total pairs | 15,000 |
-| Batches | 38 |
-| Unique questions | 100% |
-| Topics covered | 25 (Phase 1) |
-| Question formats | 13 (Phase 2) |
-
----
-
 ## Lessons Learned
 
 1. **Don't trust synthetic data blindly.** ChatGPT generated 94% garbage despite careful prompting.
@@ -230,6 +244,8 @@ ChatGPT synthetic Q&A data was 94% garbage:
 
 7. **RAG is essential for small models.** Model provides domain vocabulary, RAG provides knowledge.
 
+8. **Look for existing quality datasets.** CoT Reasoning Dataset provides structured Q&A with chain-of-thought.
+
 ---
 
 ## Files on HPC
@@ -245,5 +261,5 @@ ChatGPT synthetic Q&A data was 94% garbage:
 
 ---
 
-*Document version: 6.0*
+*Document version: 7.0*
 *Last updated: December 24, 2025*
