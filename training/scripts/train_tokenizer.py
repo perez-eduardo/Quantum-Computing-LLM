@@ -1,182 +1,131 @@
 """
-Quantum Computing BPE Tokenizer Training Script
-
-Trains a custom BPE tokenizer on your quantum computing corpus.
-Run locally (not on HPC).
-
-Usage:
-    python train_tokenizer.py --qa combined_qa.csv --books combined_books.txt --output tokenizer/
-
-Requirements:
-    pip install tokenizers pandas
+Train BPE tokenizer on books + Q&A data
+Run this FIRST before training the model
 """
 
-import argparse
+import csv
+import io
 from pathlib import Path
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders, processors
-import pandas as pd
 
-
-def load_qa_texts(qa_path: str) -> list[str]:
-    """Load Q&A pairs from CSV and combine into training texts."""
-    print(f"Loading Q&A data from {qa_path}...")
-    df = pd.read_csv(qa_path)
-    
+def load_texts(book_path, qa_paths):
+    """Load all text data for tokenizer training"""
     texts = []
-    for _, row in df.iterrows():
-        q = str(row.get("question", "")).strip()
-        a = str(row.get("answer", "")).strip()
-        if q and a:
-            texts.append(f"{q}\n{a}")
     
-    print(f"  Loaded {len(texts):,} Q&A pairs")
+    # Load books
+    print(f"Loading books from {book_path}...")
+    with open(book_path, 'r', encoding='utf-8') as f:
+        book_text = f.read()
+    texts.append(book_text)
+    print(f"  Book text: {len(book_text):,} characters")
+    
+    # Load Q&A CSVs
+    for csv_path in qa_paths:
+        print(f"Loading {csv_path}...")
+        count = 0
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            lines = [l for l in f if not l.startswith('#') and l.strip()]
+        
+        reader = csv.DictReader(io.StringIO(''.join(lines)))
+        for row in reader:
+            q = row.get('question', '').strip()
+            a = row.get('answer', '').strip()
+            c = row.get('context', '').strip()
+            
+            if q and a:
+                # Format as training data will appear
+                if c:
+                    texts.append(f"Context: {c} Question: {q} Answer: {a}")
+                else:
+                    texts.append(f"Question: {q} Answer: {a}")
+                count += 1
+        
+        print(f"  Loaded {count:,} Q&A pairs")
+    
+    print(f"\nTotal texts: {len(texts):,}")
     return texts
 
 
-def load_book_text(book_path: str) -> list[str]:
-    """Load book text and split into chunks for training."""
-    print(f"Loading book text from {book_path}...")
-    with open(book_path, "r", encoding="utf-8") as f:
-        text = f.read()
+def train_tokenizer(texts, vocab_size=16384, output_path="tokenizer.json"):
+    """Train BPE tokenizer"""
+    print(f"\nTraining tokenizer with vocab_size={vocab_size}...")
     
-    # Split into paragraphs (double newline separated)
-    chunks = [chunk.strip() for chunk in text.split("\n\n") if chunk.strip()]
-    print(f"  Loaded {len(chunks):,} text chunks")
-    return chunks
-
-
-def train_tokenizer(
-    texts: list[str],
-    vocab_size: int = 16000,
-    min_frequency: int = 2
-) -> Tokenizer:
-    """Train a BPE tokenizer on the provided texts."""
-    print(f"\nTraining BPE tokenizer (vocab_size={vocab_size})...")
-    
-    # Initialize BPE model
-    tokenizer = Tokenizer(models.BPE(unk_token="<unk>"))
+    # Initialize BPE tokenizer
+    tokenizer = Tokenizer(models.BPE(unk_token="[UNK]"))
     
     # Pre-tokenizer: split on whitespace and punctuation
     tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
     
-    # Decoder for proper detokenization
+    # Decoder
     tokenizer.decoder = decoders.ByteLevel()
     
-    # Post-processor for byte-level
+    # Post-processor
     tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
     
-    # Define special tokens
-    special_tokens = ["<pad>", "<eos>", "<unk>"]
-    
-    # Trainer configuration
+    # Trainer
     trainer = trainers.BpeTrainer(
         vocab_size=vocab_size,
-        min_frequency=min_frequency,
-        special_tokens=special_tokens,
+        special_tokens=["[PAD]", "[UNK]", "[BOS]", "[EOS]"],
         show_progress=True,
+        min_frequency=2
     )
     
-    # Train from iterator
+    # Train
     tokenizer.train_from_iterator(texts, trainer=trainer)
     
-    print(f"  Vocabulary size: {tokenizer.get_vocab_size():,}")
+    # Save
+    tokenizer.save(output_path)
+    print(f"Tokenizer saved to {output_path}")
+    
+    # Test
+    print("\nTesting tokenizer...")
+    test_texts = [
+        "What is a qubit?",
+        "Quantum superposition allows a qubit to exist in multiple states.",
+        "Context: Q: What is entanglement? A: Entanglement correlates qubits. Question: How? Answer:",
+    ]
+    
+    for text in test_texts:
+        encoded = tokenizer.encode(text)
+        decoded = tokenizer.decode(encoded.ids)
+        print(f"  Original: {text[:60]}...")
+        print(f"  Tokens: {len(encoded.ids)}")
+        print(f"  Decoded: {decoded[:60]}...")
+        print()
+    
+    # Show some quantum-specific tokens
+    print("Sample vocabulary tokens:")
+    vocab = tokenizer.get_vocab()
+    quantum_tokens = [t for t in vocab.keys() if 'qubit' in t.lower() or 'quantum' in t.lower() or 'superpos' in t.lower()]
+    for t in quantum_tokens[:20]:
+        print(f"  {t}")
     
     return tokenizer
 
 
-def test_tokenizer(tokenizer: Tokenizer):
-    """Run some test encodings to verify tokenizer works."""
-    print("\n" + "=" * 50)
-    print("TOKENIZER TEST")
-    print("=" * 50)
-    
-    test_sentences = [
-        "What is a qubit?",
-        "Quantum entanglement allows two qubits to be correlated.",
-        "The Hadamard gate creates superposition.",
-        "Apply a CNOT gate to entangle the qubits.",
-        "Superposition means a qubit can be in both states simultaneously.",
-    ]
-    
-    for sentence in test_sentences:
-        encoded = tokenizer.encode(sentence)
-        decoded = tokenizer.decode(encoded.ids)
-        
-        print(f"\nOriginal:  {sentence}")
-        print(f"Tokens:    {encoded.tokens}")
-        print(f"IDs:       {encoded.ids}")
-        print(f"Decoded:   {decoded}")
-
-
-def print_special_token_ids(tokenizer: Tokenizer):
-    """Print IDs of special and domain tokens."""
-    print("\n" + "=" * 50)
-    print("SPECIAL TOKEN IDS")
-    print("=" * 50)
-    
-    tokens_to_check = [
-        "<pad>", "<eos>", "<unk>",
-    ]
-    
-    vocab = tokenizer.get_vocab()
-    for token in tokens_to_check:
-        token_id = vocab.get(token, "NOT FOUND")
-        print(f"  {token}: {token_id}")
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Train BPE tokenizer for Quantum Computing LLM")
-    parser.add_argument("--qa", required=True, help="Path to combined_qa.csv")
-    parser.add_argument("--books", required=True, help="Path to combined_books.txt")
-    parser.add_argument("--output", default="tokenizer", help="Output directory for tokenizer")
-    parser.add_argument("--vocab-size", type=int, default=16000, help="Vocabulary size")
-    parser.add_argument("--min-freq", type=int, default=2, help="Minimum token frequency")
+    import argparse
+    parser = argparse.ArgumentParser(description='Train tokenizer')
+    parser.add_argument('--book_path', type=str, default='../data/combined_books_cleaned.txt')
+    parser.add_argument('--qa_paths', type=str, nargs='+', default=[
+        '../data/claude_qa_context.csv',
+        '../data/cot_qa_context.csv',
+        '../data/stackexchange_qa_context.csv'
+    ])
+    parser.add_argument('--vocab_size', type=int, default=16384)
+    parser.add_argument('--output', type=str, default='../tokenizer.json')
     
     args = parser.parse_args()
     
-    # Validate input files exist
-    if not Path(args.qa).exists():
-        print(f"Error: Q&A file not found: {args.qa}")
-        return 1
-    if not Path(args.books).exists():
-        print(f"Error: Books file not found: {args.books}")
-        return 1
-    
-    # Load data
-    qa_texts = load_qa_texts(args.qa)
-    book_texts = load_book_text(args.books)
-    all_texts = qa_texts + book_texts
-    
-    print(f"\nTotal training texts: {len(all_texts):,}")
+    # Load texts
+    texts = load_texts(args.book_path, args.qa_paths)
     
     # Train tokenizer
-    tokenizer = train_tokenizer(
-        texts=all_texts,
-        vocab_size=args.vocab_size,
-        min_frequency=args.min_freq
-    )
+    train_tokenizer(texts, args.vocab_size, args.output)
     
-    # Create output directory
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Save tokenizer
-    output_path = output_dir / "tokenizer.json"
-    tokenizer.save(str(output_path))
-    print(f"\nTokenizer saved to: {output_path}")
-    
-    # Print stats and run tests
-    print_special_token_ids(tokenizer)
-    test_tokenizer(tokenizer)
-    
-    print("\n" + "=" * 50)
-    print("DONE")
-    print("=" * 50)
-    print(f"Tokenizer ready at: {output_path}")
-    print(f"Copy this file to HPC when setting up training.")
-    
-    return 0
+    print("\nDone! Now run training with:")
+    print("  sbatch train_phase1.sh")
 
 
 if __name__ == "__main__":
-    exit(main())
+    main()

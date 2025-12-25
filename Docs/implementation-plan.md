@@ -11,50 +11,50 @@
 
 ## Current Status
 
-**Phase 1:** Training Pipeline - ⚠️ REQUIRES RETRAINING
+**Phase 1:** Training Pipeline - ✅ COMPLETE (v5 trained)
 **Phase 2:** RAG System - ✅ COMPLETE
-**Phase 3:** Backend - ⬜ BLOCKED (awaiting model retraining)
+**Phase 3:** Backend - ⬜ IN PROGRESS
 
-**Next Action:** Retrain model with context-aware format (50M-100M params)
+**Next Action:** Connect RAG to model for end-to-end testing
 
 ---
 
-## CRITICAL DESIGN FLAW DISCOVERED (December 24, 2025)
+## Model v5 Training Complete (December 24, 2025)
 
-### The Problem
+### Two-Phase Training Results
 
-The 1.2M parameter model was trained on plain Q&A format:
-```
-Q: What is superposition?
-A: Superposition allows...
-```
+**Phase 1: Book Pretraining**
+| Metric | Value |
+|--------|-------|
+| Data | combined_books_cleaned.txt (620K words) |
+| Epochs | 17 |
+| Final Perplexity | 2.20 |
+| Time | ~13 min on H100 |
 
-But at inference time, RAG retrieves context that the model cannot use:
-```
-Context: [retrieved Q&A pairs]
-Question: What is superposition?
-```
+**Phase 2: Context Q&A Fine-tuning**
+| Metric | Value |
+|--------|-------|
+| Data | 28,071 context-format Q&A pairs |
+| Epochs | 10 |
+| Time | ~116 min on H100 |
 
-**Result:** The model ignores context entirely because it never learned the format.
+### Evaluation Results
 
-### The Solution
+| Test Type | Score |
+|-----------|-------|
+| With context (RAG simulation) | **64% keyword accuracy** |
+| Without context | Gibberish (expected) |
 
-1. **Retrain with context-aware format:**
-```
-Context:
-Q: What is entanglement?
-A: Entanglement correlates two qubits...
+**Verdict:** ✅ Model successfully learned to use context
 
-Q: What is a qubit?
-A: A qubit is the basic unit...
+### Sample Outputs (With Context)
 
-Question: What is superposition?
-Answer: Superposition allows a qubit to be in multiple states...
-```
-
-2. **Scale model to 50M-100M parameters** for coherent generation
-
-3. **Deploy on Railway** (still fits, ~100-200MB for 50M-100M params)
+| Question | Keywords Found | Score |
+|----------|----------------|-------|
+| What is a qubit? | qubit, quantum, bit, superposition | 80% |
+| Why is quantum computing important for cryptography? | cryptography, encryption, security | 60% |
+| What is a quantum circuit? | circuit, gate, qubit, quantum | 80% |
+| Why is quantum error correction needed? | error, correct, fault | 60% |
 
 ---
 
@@ -64,49 +64,45 @@ Answer: Superposition allows a qubit to be in multiple states...
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Download QuantumLLMInstruct | ✅ Done | Only 46 usable pairs. Excluded. |
 | Download Stack Exchange QC dump | ✅ Done | 28K total posts |
-| ~~Obtain ChatGPT synthetic Q&A~~ | ❌ Abandoned | 94% garbage. Replaced with Claude Q&A. |
 | Obtain book PDFs | ✅ Done | 5 books |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs across 38 batches |
 | Obtain CoT Reasoning Dataset | ✅ Done | 2,998 Q&A pairs with chain-of-thought |
+| Clean books | ✅ Done | 620K words (removed copyright, TOC, spam) |
 
 ### Data Processing & Cleaning
 
 | Task | Status | Output |
 |------|--------|--------|
 | Process Stack Exchange XML | ✅ Done | 10,673 pairs |
-| Filter Stack Exchange (>1024 tokens) | ✅ Done | 9,008 pairs |
-| Extract and clean book texts | ✅ Done | 633,562 words |
+| Extract and clean book texts | ✅ Done | 620,455 words |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs |
 | Process CoT dataset | ✅ Done | 2,998 pairs |
 | Train custom BPE tokenizer | ✅ Done | 16K vocab |
-| **Add context to CoT dataset** | ✅ Done | Reasoning from metadata |
-| **Add context to Stack Exchange** | ✅ Done | Tags + body as context |
-| **Add context to Claude Q&A** | ✅ Done | Template-based context (38 batches) |
+| Add context to CoT dataset | ✅ Done | Reasoning from metadata |
+| Add context to Stack Exchange | ✅ Done | Tags + body as context |
+| Add context to Claude Q&A | ✅ Done | Topic-matched relevant Q&A pairs |
 
-### Context-Format Data (NEW)
+### Context-Format Data
 
 | Source | Rows | Context Type |
 |--------|------|--------------|
 | cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
 | stackexchange_qa_context.csv | 10,673 | Tags + question body |
-| claude_qa_batch1-38_context.csv | 15,000 | Template-based (question type + topics) |
-| **Total** | **28,671** | |
+| claude_qa_context.csv | 14,400 | Topic-matched relevant Q&A pairs |
+| **Total** | **28,071** | |
 
 ### HPC Training
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Set up HPC environment | ✅ Done | Python 3.11 venv, PyTorch 2.5.1+cu121 |
-| Implement transformer architecture | ✅ Done | `scripts/model.py` |
-| Train model v1 (garbage data) | ✅ Done | 3 epochs, perplexity 15.55, 14.8% eval |
-| Investigate data quality issues | ✅ Done | ChatGPT data 94% garbage |
-| Train model v3 (clean data) | ✅ Done | 10 epochs, perplexity 89.63, 16.4% eval |
-| Train model v4 (expanded data) | ✅ Done | 10 epochs, perplexity 91.80, 11.4% eval |
-| Download model files | ✅ Done | `training/model/` |
-| **Update model.py for 50M-100M params** | ⬜ Pending | Required for coherent generation |
-| **Retrain with context-aware format** | ⬜ Pending | New training format |
+| Implement transformer architecture | ✅ Done | 125.8M params |
+| Train tokenizer | ✅ Done | 16K vocab BPE |
+| Phase 1: Book pretraining | ✅ Done | 17 epochs, perplexity 2.20 |
+| Phase 2: Context Q&A fine-tuning | ✅ Done | 10 epochs |
+| Evaluate model | ✅ Done | 64% keyword accuracy with context |
+| Download model files | ⬜ Pending | |
 
 ### RAG System
 
@@ -118,35 +114,31 @@ Answer: Superposition allows a qubit to be in multiple states...
 
 ---
 
-## Training Results (v1-v4, Pre-Redesign)
+## Training Results Comparison
 
-### v4 (Final before redesign - December 24, 2025)
-
-| Metric | Value |
-|--------|-------|
-| Data | 26,764 Q&A (plain format, NO context) |
-| Epochs | 10 |
-| Perplexity | 91.80 |
-| Eval Score | 11.4% keyword match |
-| Boilerplate | 0% contaminated |
-
-**Problem:** Cannot use RAG context at inference. Requires retraining.
+| Metric | v1 | v3 | v4 | v5 |
+|--------|----|----|----|----|
+| Parameters | 1.2M | 1.2M | 1.2M | **125.8M** |
+| Training data | 96K garbage | 24K plain | 26K plain | 28K context |
+| Format | Plain Q&A | Plain Q&A | Plain Q&A | **Context-aware** |
+| Perplexity | 15.55 | 89.63 | 91.80 | **2.20 (Phase 1)** |
+| Keyword Accuracy | 14.8% | 16.4% | 11.4% | **64%** |
+| Can use RAG context | ❌ | ❌ | ❌ | **✅** |
 
 ---
 
 ## What Is Next
 
-### Immediate: Model Retraining
+### Immediate: End-to-End Integration
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Generate context-format training data | High | ✅ Done |
-| Update model.py to 50M-100M params | High | ⬜ Pending |
-| Retrain on HPC (30-60 min) | High | ⬜ Pending |
-| Test coherent generation | High | ⬜ Pending |
-| Evaluate with context | High | ⬜ Pending |
+| Download model from HPC | High | ⬜ Pending |
+| Create inference pipeline | High | ⬜ Pending |
+| Connect RAG retrieval to model | High | ⬜ Pending |
+| Test end-to-end flow | High | ⬜ Pending |
 
-### Phase 3: Backend (After Retraining)
+### Phase 3: Backend
 
 | Task | Priority | Status |
 |------|----------|--------|
@@ -172,17 +164,19 @@ Answer: Superposition allows a qubit to be in multiple states...
 
 ## Development Phases
 
-### Phase 1: Training Pipeline ⚠️ REQUIRES RETRAINING
+### Phase 1: Training Pipeline ✅ COMPLETE
 
 | Task | Status |
 |------|--------|
 | Generate Claude Q&A (15,000 pairs) | ✅ Done |
 | Process Stack Exchange | ✅ Done |
 | Process CoT dataset (2,998 pairs) | ✅ Done |
-| **Add context to all datasets** | ✅ Done |
-| Train model v4 (plain format) | ✅ Done |
-| **Update architecture (50M-100M)** | ⬜ Pending |
-| **Retrain with context format** | ⬜ Pending |
+| Add context to all datasets | ✅ Done |
+| Clean books (620K words) | ✅ Done |
+| Train tokenizer | ✅ Done |
+| Phase 1: Book pretraining (17 epochs) | ✅ Done |
+| Phase 2: Context Q&A fine-tuning (10 epochs) | ✅ Done |
+| Evaluate model (64% accuracy) | ✅ Done |
 
 ### Phase 2: RAG System ✅ COMPLETE
 
@@ -193,10 +187,11 @@ Answer: Superposition allows a qubit to be in multiple states...
 | Test retrieval quality | ✅ Done |
 | Achieve 94% pass rate | ✅ Done |
 
-### Phase 3: Backend ⬜ BLOCKED
+### Phase 3: Backend ⬜ IN PROGRESS
 
 | Task | Status |
 |------|--------|
+| Download model from HPC | ⬜ Pending |
 | FastAPI endpoints | ⬜ Pending |
 | Model inference | ⬜ Pending |
 | RAG integration | ⬜ Pending |
@@ -206,22 +201,34 @@ Answer: Superposition allows a qubit to be in multiple states...
 
 ## Output Files
 
-### Context-Format Training Data (NEW)
+### Model Files (HPC)
+
+| File | Location | Description |
+|------|----------|-------------|
+| `phase1_best.pt` | `~/hpc-share/quantum-llm/model/` | Book pretrained |
+| `phase2_best.pt` | `~/hpc-share/quantum-llm/model/` | Context fine-tuned |
+| `final_model.pt` | `~/hpc-share/quantum-llm/model/` | **Production model** |
+| `tokenizer.json` | `~/hpc-share/quantum-llm/` | BPE tokenizer |
+
+### Training Scripts (HPC)
+
+| File | Purpose |
+|------|---------|
+| `scripts/model.py` | 125.8M param transformer architecture |
+| `scripts/dataset.py` | Book + Context Q&A data loading |
+| `scripts/train.py` | Two-phase training logic |
+| `scripts/train_phase1.sh` | SLURM job for book pretraining |
+| `scripts/train_phase2.sh` | SLURM job for context fine-tuning |
+| `scripts/evaluate.py` | Model evaluation |
+| `scripts/train_tokenizer.py` | BPE tokenizer training |
+
+### Context-Format Training Data
 
 | File | Rows | Description |
 |------|------|-------------|
 | `cot_qa_context.csv` | 2,998 | question, answer, context (reasoning) |
 | `stackexchange_qa_context.csv` | 10,673 | question, answer, context (tags + body) |
-| `claude_qa_batch1-38_context.csv` | 15,000 | question, answer, context (template) |
-
-### Local (training/model/) - OUTDATED
-
-| File | Description |
-|------|-------------|
-| `final_model.pt` | v4 model weights (plain format, cannot use context) |
-| `best_model.pt` | Best model by val loss |
-| `config.json` | Model config (needs update for 50M-100M) |
-| `tokenizer.json` | BPE tokenizer (16K vocab) |
+| `claude_qa_context.csv` | 14,400 | question, answer, context (topic-matched) |
 
 ### Database (Neon)
 
@@ -233,22 +240,24 @@ Answer: Superposition allows a qubit to be in multiple states...
 
 ## Key Findings During Implementation
 
-1. **ChatGPT synthetic data was 94% garbage.** Boilerplate in 83%, templates in 59%. Abandoned entirely.
+1. **ChatGPT synthetic data was 94% garbage.** Abandoned entirely.
 
-2. **Claude Q&A generation works.** 15,000 pairs with 100% unique questions, proper verification.
+2. **Claude Q&A generation works.** 15,000 pairs with proper verification.
 
-3. **Small models learn vocabulary, not reasoning.** 1.2M params produces quantum jargon but incoherent answers.
+3. **Small models cannot reason.** 1.2M params produces gibberish. 125.8M produces coherent text.
 
-4. **Data quality verification is critical.** Boilerplate check confirmed 0% contamination.
+4. **Two-phase training works.** Book pretraining (perplexity 2.20) + context fine-tuning = usable model.
 
-5. **Q&A pairs beat book chunks for RAG.** Book chunks mention terms without defining them.
+5. **Context format is critical.** Model must be trained on same format used at inference.
 
-6. **94% retrieval is achievable.** Remaining failures are data gaps and semantic edge cases.
+6. **Topic-matched context beats random.** Context must be relevant to the question.
 
-7. **CRITICAL: Training format must match inference format.** Model trained on plain Q&A cannot use RAG context. Must retrain with context-aware format.
+7. **64% keyword accuracy with context.** Major improvement from v4's 11.4%.
 
-8. **Coherent generation requires capacity.** 50M-100M parameters needed for readable answers, not 1.2M.
+8. **Model needs context to function.** Without context, outputs are gibberish. RAG is essential.
+
+9. **Q&A pairs beat book chunks for RAG.** 94% retrieval accuracy.
 
 ---
 
-*Document version: 12.0*
+*Document version: 13.0*

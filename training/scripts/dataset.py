@@ -1,251 +1,212 @@
 """
-Quantum Computing LLM - Dataset and DataLoader
-Handles Q&A pairs and book text for training
+Dataset classes for two-phase training:
+Phase 1: Book pretraining (coherent prose generation)
+Phase 2: Context Q&A fine-tuning (RAG context usage)
 """
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-import csv
 import json
-from pathlib import Path
-from typing import Optional
+import csv
 import random
-
-
-class Tokenizer:
-    """Wrapper for the trained BPE tokenizer"""
-    def __init__(self, tokenizer_path: str):
-        with open(tokenizer_path, 'r', encoding='utf-8') as f:
-            self.tokenizer_data = json.load(f)
-        
-        self.vocab = self.tokenizer_data['model']['vocab']
-        self.merges = self.tokenizer_data['model']['merges']
-        
-        # Build reverse vocab for decoding
-        self.id_to_token = {v: k for k, v in self.vocab.items()}
-        
-        # Special tokens
-        self.pad_token_id = 0  # <pad>
-        self.eos_token_id = 1  # <eos>
-        self.unk_token_id = 2  # <unk>
-        
-        self.vocab_size = len(self.vocab)
-        
-        # Try to use tokenizers library if available
-        try:
-            from tokenizers import Tokenizer as HFTokenizer
-            self.hf_tokenizer = HFTokenizer.from_file(tokenizer_path)
-            self._use_hf = True
-        except ImportError:
-            self._use_hf = False
-            print("Warning: tokenizers library not found. Using basic encoding.")
-
-    def encode(self, text: str, add_eos: bool = True) -> list:
-        """Encode text to token IDs"""
-        if self._use_hf:
-            ids = self.hf_tokenizer.encode(text).ids
-        else:
-            # Basic fallback - character level with vocab lookup
-            ids = []
-            for char in text:
-                if char in self.vocab:
-                    ids.append(self.vocab[char])
-                else:
-                    ids.append(self.unk_token_id)
-        
-        if add_eos:
-            ids.append(self.eos_token_id)
-        
-        return ids
-
-    def decode(self, ids: list) -> str:
-        """Decode token IDs to text"""
-        if self._use_hf:
-            return self.hf_tokenizer.decode(ids)
-        else:
-            # Basic fallback
-            tokens = [self.id_to_token.get(i, '<unk>') for i in ids]
-            return ''.join(tokens)
-
-    def __len__(self):
-        return self.vocab_size
-
-
-class QADataset(Dataset):
-    """Dataset for Question-Answer pairs"""
-    def __init__(
-        self,
-        csv_path: str,
-        tokenizer: Tokenizer,
-        max_length: int = 512,
-        question_col: str = 'question',
-        answer_col: str = 'answer',
-    ):
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.data = []
-        
-        print(f"Loading Q&A data from {csv_path}...")
-        with open(csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                q = row.get(question_col, '').strip()
-                a = row.get(answer_col, '').strip()
-                if q and a:
-                    self.data.append((q, a))
-        
-        print(f"Loaded {len(self.data):,} Q&A pairs")
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        question, answer = self.data[idx]
-        
-        # Format: "Q: {question}\nA: {answer}<eos>"
-        text = f"Q: {question}\nA: {answer}"
-        
-        # Encode
-        ids = self.tokenizer.encode(text, add_eos=True)
-        
-        # Truncate if needed
-        if len(ids) > self.max_length:
-            ids = ids[:self.max_length]
-        
-        return torch.tensor(ids, dtype=torch.long)
+from pathlib import Path
 
 
 class BookDataset(Dataset):
-    """Dataset for book text (next token prediction)"""
-    def __init__(
-        self,
-        txt_path: str,
-        tokenizer: Tokenizer,
-        max_length: int = 512,
-        stride: int = 256,
-    ):
+    """
+    Phase 1: Book pretraining dataset
+    Chunks books into sequences for next-token prediction
+    """
+    def __init__(self, book_path, tokenizer, max_length=1024, stride=512):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.stride = stride
+        self.chunks = []
         
-        print(f"Loading book data from {txt_path}...")
-        with open(txt_path, 'r', encoding='utf-8') as f:
+        print(f"Loading books from {book_path}...")
+        with open(book_path, 'r', encoding='utf-8') as f:
             text = f.read()
         
-        # Encode entire text
-        print("Tokenizing book text...")
-        self.all_ids = self.tokenizer.encode(text, add_eos=False)
-        print(f"Total tokens: {len(self.all_ids):,}")
+        print(f"Book text: {len(text):,} characters")
         
-        # Calculate number of chunks
-        self.n_chunks = max(1, (len(self.all_ids) - max_length) // stride + 1)
-        print(f"Created {self.n_chunks:,} chunks (stride={stride})")
-
+        # Tokenize entire text
+        tokens = tokenizer.encode(text).ids
+        print(f"Total tokens: {len(tokens):,}")
+        
+        # Create overlapping chunks
+        for i in range(0, len(tokens) - max_length, stride):
+            chunk = tokens[i:i + max_length]
+            if len(chunk) == max_length:
+                self.chunks.append(chunk)
+        
+        print(f"Created {len(self.chunks):,} book chunks")
+    
     def __len__(self):
-        return self.n_chunks
-
+        return len(self.chunks)
+    
     def __getitem__(self, idx):
-        start = idx * self.stride
-        end = start + self.max_length
+        tokens = self.chunks[idx]
+        x = torch.tensor(tokens[:-1], dtype=torch.long)
+        y = torch.tensor(tokens[1:], dtype=torch.long)
+        return x, y
+
+
+class ContextQADataset(Dataset):
+    """
+    Phase 2: Context Q&A fine-tuning dataset
+    Format: Context: [Q&A pairs] Question: [q] Answer: [a]
+    """
+    def __init__(self, csv_paths, tokenizer, max_length=1024):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.examples = []
         
-        # Get chunk
-        ids = self.all_ids[start:end]
+        # Load from all CSV files
+        for csv_path in csv_paths:
+            print(f"Loading {csv_path}...")
+            count = 0
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                # Skip comment lines
+                lines = [l for l in f if not l.startswith('#') and l.strip()]
+            
+            import io
+            reader = csv.DictReader(io.StringIO(''.join(lines)))
+            
+            for row in reader:
+                question = row.get('question', '').strip()
+                answer = row.get('answer', '').strip()
+                context = row.get('context', '').strip()
+                
+                if question and answer:
+                    self.examples.append({
+                        'question': question,
+                        'answer': answer,
+                        'context': context
+                    })
+                    count += 1
+            
+            print(f"  Loaded {count:,} examples")
         
-        # Pad if needed (last chunk might be shorter)
-        if len(ids) < self.max_length:
-            ids = ids + [self.tokenizer.pad_token_id] * (self.max_length - len(ids))
+        print(f"Total examples: {len(self.examples):,}")
+        random.shuffle(self.examples)
+    
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, idx):
+        ex = self.examples[idx]
         
-        return torch.tensor(ids, dtype=torch.long)
+        # Format: Context: [context] Question: [q] Answer: [a]
+        if ex['context']:
+            text = f"Context: {ex['context']} Question: {ex['question']} Answer: {ex['answer']}"
+        else:
+            text = f"Question: {ex['question']} Answer: {ex['answer']}"
+        
+        # Tokenize
+        tokens = self.tokenizer.encode(text).ids
+        
+        # Truncate if needed
+        if len(tokens) > self.max_length:
+            tokens = tokens[:self.max_length]
+        
+        # Pad if needed
+        if len(tokens) < self.max_length:
+            tokens = tokens + [0] * (self.max_length - len(tokens))
+        
+        tokens = torch.tensor(tokens, dtype=torch.long)
+        x = tokens[:-1]
+        y = tokens[1:]
+        
+        return x, y
 
 
 class CombinedDataset(Dataset):
-    """Combines Q&A and Book datasets with configurable mixing"""
-    def __init__(
-        self,
-        qa_dataset: QADataset,
-        book_dataset: BookDataset,
-        qa_weight: float = 0.8,
-    ):
-        self.qa_dataset = qa_dataset
+    """
+    Combined dataset for mixed training (books + Q&A)
+    Uses weighted sampling to control mix ratio
+    """
+    def __init__(self, book_dataset, qa_dataset, book_weight=0.3):
         self.book_dataset = book_dataset
-        self.qa_weight = qa_weight
+        self.qa_dataset = qa_dataset
+        self.book_weight = book_weight
         
-        # Calculate total length based on the larger dataset
-        self.qa_len = len(qa_dataset)
+        # Calculate effective length
         self.book_len = len(book_dataset)
-        self.total_len = self.qa_len + self.book_len
+        self.qa_len = len(qa_dataset)
+        self.total_len = self.book_len + self.qa_len
         
-        print(f"Combined dataset: {self.qa_len:,} Q&A + {self.book_len:,} book chunks = {self.total_len:,} total")
-
+        print(f"Combined dataset: {self.book_len:,} book + {self.qa_len:,} Q&A = {self.total_len:,} total")
+        print(f"Book weight: {book_weight:.0%}")
+    
     def __len__(self):
         return self.total_len
-
+    
     def __getitem__(self, idx):
-        if idx < self.qa_len:
-            return self.qa_dataset[idx]
+        # Probabilistic selection based on weight
+        if random.random() < self.book_weight:
+            return self.book_dataset[idx % self.book_len]
         else:
-            return self.book_dataset[idx - self.qa_len]
+            return self.qa_dataset[idx % self.qa_len]
 
 
-def collate_fn(batch, pad_token_id=0):
-    """Collate function for variable length sequences"""
-    max_len = max(len(x) for x in batch)
-    
-    padded = []
-    for x in batch:
-        if len(x) < max_len:
-            padding = torch.full((max_len - len(x),), pad_token_id, dtype=torch.long)
-            x = torch.cat([x, padding])
-        padded.append(x)
-    
-    return torch.stack(padded)
+def load_tokenizer(path):
+    """Load tokenizers.Tokenizer from JSON file"""
+    from tokenizers import Tokenizer
+    return Tokenizer.from_file(path)
 
 
 def create_dataloaders(
-    qa_path: str,
-    book_path: str,
-    tokenizer_path: str,
-    batch_size: int = 32,
-    max_length: int = 512,
-    val_split: float = 0.05,
-    num_workers: int = 4,
-    seed: int = 42,
+    tokenizer_path,
+    book_path=None,
+    qa_csv_paths=None,
+    max_length=1024,
+    batch_size=8,
+    phase=1,
+    book_weight=0.3,
+    num_workers=0
 ):
-    """Create train and validation dataloaders"""
+    """
+    Create dataloaders for training
     
-    # Load tokenizer
-    tokenizer = Tokenizer(tokenizer_path)
-    print(f"Loaded tokenizer with {len(tokenizer):,} tokens")
+    phase=1: Book pretraining only
+    phase=2: Context Q&A fine-tuning only
+    phase=3: Combined (books + Q&A)
+    """
+    tokenizer = load_tokenizer(tokenizer_path)
     
-    # Create datasets
-    qa_dataset = QADataset(qa_path, tokenizer, max_length)
-    book_dataset = BookDataset(book_path, tokenizer, max_length)
+    if phase == 1:
+        # Phase 1: Books only
+        assert book_path, "book_path required for phase 1"
+        dataset = BookDataset(book_path, tokenizer, max_length)
+        
+    elif phase == 2:
+        # Phase 2: Context Q&A only
+        assert qa_csv_paths, "qa_csv_paths required for phase 2"
+        dataset = ContextQADataset(qa_csv_paths, tokenizer, max_length)
+        
+    elif phase == 3:
+        # Phase 3: Combined
+        assert book_path and qa_csv_paths, "Both book_path and qa_csv_paths required for phase 3"
+        book_ds = BookDataset(book_path, tokenizer, max_length)
+        qa_ds = ContextQADataset(qa_csv_paths, tokenizer, max_length)
+        dataset = CombinedDataset(book_ds, qa_ds, book_weight)
     
-    # Combine
-    combined = CombinedDataset(qa_dataset, book_dataset)
+    else:
+        raise ValueError(f"Unknown phase: {phase}")
     
-    # Split
-    total_len = len(combined)
-    val_len = int(total_len * val_split)
-    train_len = total_len - val_len
-    
-    random.seed(seed)
-    torch.manual_seed(seed)
-    
+    # Split train/val (95/5)
+    train_size = int(0.95 * len(dataset))
+    val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(
-        combined, [train_len, val_len]
+        dataset, [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)
     )
     
-    print(f"Train: {len(train_dataset):,}, Val: {len(val_dataset):,}")
-    
-    # Create dataloaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        collate_fn=lambda b: collate_fn(b, tokenizer.pad_token_id),
-        pin_memory=True,
+        pin_memory=True
     )
     
     val_loader = DataLoader(
@@ -253,8 +214,7 @@ def create_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        collate_fn=lambda b: collate_fn(b, tokenizer.pad_token_id),
-        pin_memory=True,
+        pin_memory=True
     )
     
     return train_loader, val_loader, tokenizer
@@ -264,27 +224,28 @@ if __name__ == "__main__":
     # Test dataset creation
     import sys
     
-    # Default paths (adjust as needed)
-    qa_path = "../data/combined_qa_final.csv"
-    book_path = "../data/combined_books.txt"
     tokenizer_path = "../tokenizer.json"
+    book_path = "../data/combined_books_cleaned.txt"
+    qa_paths = [
+        "../data/claude_qa_context.csv",
+        "../data/cot_qa_context.csv",
+        "../data/stackexchange_qa_context.csv"
+    ]
     
-    if len(sys.argv) > 1:
-        qa_path = sys.argv[1]
-    if len(sys.argv) > 2:
-        book_path = sys.argv[2]
-    if len(sys.argv) > 3:
-        tokenizer_path = sys.argv[3]
-    
-    train_loader, val_loader, tokenizer = create_dataloaders(
-        qa_path, book_path, tokenizer_path,
-        batch_size=4,
-        max_length=128,
-        num_workers=0,
+    print("Testing Phase 1 (Books)...")
+    train_loader, val_loader, tok = create_dataloaders(
+        tokenizer_path, book_path=book_path, phase=1, batch_size=4
     )
+    x, y = next(iter(train_loader))
+    print(f"Batch shape: {x.shape}")
     
-    # Test batch
-    for batch in train_loader:
-        print(f"Batch shape: {batch.shape}")
-        print(f"Sample decoded: {tokenizer.decode(batch[0].tolist()[:50])}...")
-        break
+    print("\nTesting Phase 2 (Context Q&A)...")
+    train_loader, val_loader, tok = create_dataloaders(
+        tokenizer_path, qa_csv_paths=qa_paths, phase=2, batch_size=4
+    )
+    x, y = next(iter(train_loader))
+    print(f"Batch shape: {x.shape}")
+    
+    # Decode a sample
+    sample = tok.decode(x[0].tolist())
+    print(f"Sample: {sample[:500]}...")

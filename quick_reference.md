@@ -27,3 +27,7 @@ source venv/bin/activate
 ```bash
 cd ~/hpc-share/quantum-llm && source venv/bin/activate
 ```
+
+
+### Voyage api
+pa-kj1_wQwgbrPmPTLd8YFJ9x8XUB8CUv0NNNCDLfiawKl

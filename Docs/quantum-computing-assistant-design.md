@@ -2,7 +2,7 @@
 
 ## Overview
 
-Design specification for a web-based application that answers questions about foundational quantum computing concepts, powered by a custom-trained transformer model combined with RAG retrieval.
+Design specification for a web-based application that answers questions about foundational quantum computing concepts, powered by a custom-trained 125.8M parameter transformer combined with RAG retrieval.
 
 **Related Documents:**
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
@@ -19,9 +19,9 @@ Design specification for a web-based application that answers questions about fo
 
 This project proves ability to:
 - Design transformer architecture from scratch
-- Build complete training pipeline
-- Train on real HPC hardware
-- Deploy end-to-end ML system
+- Build complete two-phase training pipeline
+- Train on real HPC hardware (H100 GPUs)
+- Deploy end-to-end ML system with RAG
 
 **Target Audience:** Recruiters evaluating ML skills, students curious about quantum computing
 
@@ -31,53 +31,65 @@ This project proves ability to:
 
 | Component | Status |
 |-----------|--------|
-| Custom Model (v4) | ⚠️ Cannot use context (needs retraining) |
-| Context-Format Data | ✅ Complete (28,671 rows) |
-| RAG System | ✅ Complete (94% retrieval) |
-| Backend | ⬜ Blocked (awaiting model) |
+| Custom Model (v5) | ✅ COMPLETE (125.8M params, 64% accuracy) |
+| Context-Format Data | ✅ COMPLETE (28,071 rows) |
+| RAG System | ✅ COMPLETE (94% retrieval) |
+| Backend | ⬜ IN PROGRESS |
 | Frontend | ⬜ Pending |
 | Deployment | ⬜ Pending |
 
-**Next Action:** Retrain model with context-aware format (50M-100M params)
+**Next Action:** Connect RAG to model for end-to-end testing
 
 ---
 
-## CRITICAL: Design Flaw & Resolution
+## Model v5 Architecture ✅ COMPLETE
 
-### Problem Discovered (December 24, 2025)
+### Parameters
 
-The v4 model was trained on plain Q&A format but RAG provides context at inference:
+| Parameter | Value |
+|-----------|-------|
+| Type | Decoder-only transformer |
+| Total parameters | **125,848,320 (125.8M)** |
+| Layers | 12 |
+| Attention heads | 12 |
+| Embedding dimension | 768 |
+| Feed-forward dimension | 3072 |
+| Vocabulary size | 16,384 (custom BPE) |
+| Context length | 1024 tokens |
+| Dropout | 0.1 |
 
-**Training format (v4):**
-```
-Q: What is superposition?
-A: Superposition allows...
-```
+### Features
+- RMSNorm (instead of LayerNorm)
+- Rotary Position Embeddings (RoPE)
+- SwiGLU activation
+- Weight tying (embedding and output)
 
-**Inference format (with RAG):**
-```
-Context: [retrieved Q&A pairs]
-Question: What is superposition?
-```
+### Two-Phase Training
 
-**Result:** Model ignores context entirely - never learned the format.
+**Phase 1: Book Pretraining**
+| Metric | Value |
+|--------|-------|
+| Data | 620K words from cleaned textbooks |
+| Tokens | 970,811 |
+| Epochs | 17 |
+| Final perplexity | **2.20** |
+| Time | ~13 min on H100 |
 
-### Resolution
+**Phase 2: Context Q&A Fine-tuning**
+| Metric | Value |
+|--------|-------|
+| Data | 28,071 context-format Q&A pairs |
+| Epochs | 10 |
+| Time | ~116 min on H100 |
 
-1. **Retrain with context-aware format:**
-```
-Context:
-Q: What is entanglement?
-A: Entanglement correlates two qubits...
+### Evaluation Results
 
-Q: What is a qubit?
-A: A qubit is the basic unit...
+| Test Type | Result |
+|-----------|--------|
+| With context | **64% keyword accuracy** |
+| Without context | Gibberish (expected) |
 
-Question: What is superposition?
-Answer: Superposition allows a qubit to be in multiple states...
-```
-
-2. **Scale to 50M-100M parameters** (1.2M cannot generate coherent text)
+**Model requires RAG context to function.** This is by design.
 
 ---
 
@@ -91,7 +103,7 @@ Answer: Superposition allows a qubit to be in multiple states...
 | Superposition (intuitive) | Matrix math |
 | Entanglement (intuitive) | Complex numbers |
 | Basic gates (what they do, not how) | Gate matrices |
-| Quantum vs classical bits | Algorithms (Grover's, Shor's, etc.) |
+| Quantum vs classical bits | Deep algorithm details |
 | Why QC matters (applications overview) | Hardware implementation details |
 | Common misconceptions | Bloch sphere math |
 
@@ -106,86 +118,40 @@ Answer: Superposition allows a qubit to be in multiple states...
 | Frontend | Single HTML page | Minimal, self-contained |
 | Backend | Python + FastAPI | RAG pipeline, model inference |
 | Database | Neon PostgreSQL + pgvector | Free tier, 26,764 Q&A embeddings |
-| Custom LLM | Trained transformer | **50M-100M params, context-aware** |
-| Training Data | Context-format Q&A | 28,671 pairs |
+| Custom LLM | Trained transformer | **125.8M params, context-aware** |
+| Training Data | Context-format Q&A | 28,071 pairs |
 | Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
 | Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
 | Hosting | Railway (Hobby) | $5/month, always on |
 
 ---
 
-## Custom Transformer Model
+## Training Data
 
-### Architecture (UPDATED)
-
-| Parameter | v4 (Broken) | v5 (Planned) |
-|-----------|-------------|--------------|
-| Type | Decoder-only | Decoder-only |
-| Parameters | ~1.2M | **50M-100M** |
-| Vocabulary size | 16,000 | 16,000 |
-| Context length | 512 tokens | 512 tokens |
-| Layers | 4 | TBD |
-| Attention heads | 4 | TBD |
-| Embedding dimension | 64 | TBD |
-| Training format | Plain Q&A | **Context-aware** |
-
-### Training Status
-
-| Version | Status | Issue |
-|---------|--------|-------|
-| v1 | ❌ Abandoned | ChatGPT garbage data |
-| v3 | ❌ Abandoned | Plain format |
-| v4 | ❌ Abandoned | Plain format, cannot use context |
-| v5 | ⬜ Pending | Context-aware, 50M-100M params |
-
-### Training Data (Context-Format)
+### Context-Format Q&A (Phase 2)
 
 | Source | Rows | Context Type |
 |--------|------|--------------|
+| claude_qa_context.csv | 14,400 | Topic-matched relevant Q&A pairs |
 | cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
 | stackexchange_qa_context.csv | 10,673 | Tags + question body |
-| claude_qa_batch1-38_context.csv | 15,000 | Template-based |
-| **Total** | **28,671** | |
+| **Total** | **28,071** | |
 
-### Training Results (v1-v4, Pre-Redesign)
+### Books (Phase 1)
 
-| Version | Data | Perplexity | Eval Score | Problem |
-|---------|------|------------|------------|---------|
-| v1 | 96K (garbage) | 15.55 | 14.8% | Garbage data |
-| v3 | 24K (clean) | 89.63 | 16.4% | Plain format |
-| v4 | 26,764 | 91.80 | 11.4% | Plain format |
+| Source | Words |
+|--------|-------|
+| combined_books_cleaned.txt | 620,455 |
 
-### Model Files
-
-**v4 files (OUTDATED - cannot use context):**
-| File | Location |
-|------|----------|
-| `final_model.pt` | `training/model/` |
-| `best_model.pt` | `training/model/` |
-| `config.json` | `training/model/` |
-| `tokenizer.json` | `training/model/` |
-
-### Tokenizer
-
-**Approach:** Custom BPE tokenizer (16K vocab) trained on clean corpus.
-
-| Token | ID | Purpose |
-|-------|----|---------|
-| `<pad>` | 0 | Padding for batching |
-| `<eos>` | 1 | End of sequence |
-| `<unk>` | 2 | Unknown token fallback |
+5 textbooks cleaned of copyright notices, TOC, spam.
 
 ---
 
-## RAG System
-
-### Status: ✅ Complete (94% retrieval)
+## RAG System ✅ COMPLETE
 
 ### Purpose
 
-The custom model has limited knowledge capacity. RAG retrieves relevant Q&A pairs at query time as context.
-
-**Critical requirement:** Model must be trained on context-aware format to actually USE the retrieved content.
+The model requires context to generate coherent answers. RAG retrieves relevant Q&A pairs at query time.
 
 ### Database Contents
 
@@ -210,12 +176,11 @@ The custom model has limited knowledge capacity. RAG retrieves relevant Q&A pair
 | Metric | Value |
 |--------|-------|
 | Test questions | 100 |
-| Pass rate | 94% |
-| Failures | 6 (data gaps, semantic edge cases) |
+| Pass rate | **94%** |
 
 ---
 
-## Inference Pipeline (Updated)
+## Inference Pipeline
 
 ```
 1. User sends question
@@ -229,18 +194,14 @@ The custom model has limited knowledge capacity. RAG retrieves relevant Q&A pair
               ▼
 4. Build context-aware prompt:
    
-   Context:
-   Q: [retrieved pair 1]
-   A: [answer 1]
-   
-   Q: [retrieved pair 2]
-   A: [answer 2]
+   Context: Q: [retrieved pair 1] A: [answer 1]
+   Q: [retrieved pair 2] A: [answer 2]
    
    Question: [user question]
    Answer:
               │
               ▼
-5. Run inference: Custom transformer (50M-100M params)
+5. Run inference: Custom transformer (125.8M params)
               │
               ▼
 6. Return response to user
@@ -294,6 +255,18 @@ Single HTML page with minimal design.
 
 ---
 
+## Model Files (HPC)
+
+| File | Location | Description |
+|------|----------|-------------|
+| `final_model.pt` | `model/` | **Production model** (~500MB) |
+| `phase1_best.pt` | `model/` | Book pretraining checkpoint |
+| `phase2_best.pt` | `model/` | Context fine-tuning checkpoint |
+| `config.json` | `model/` | Model configuration |
+| `tokenizer.json` | root | BPE tokenizer (16K vocab) |
+
+---
+
 ## Hosting & Deployment
 
 ### Railway Configuration
@@ -303,8 +276,7 @@ Single HTML page with minimal design.
 | Plan | Hobby ($5/month) |
 | Structure | Monorepo (backend serves frontend) |
 | Always on | Yes |
-
-50M-100M parameter model is ~100-200MB. Still fits Railway.
+| Model size | ~500MB (125.8M params) |
 
 ### Environment Variables
 
@@ -347,20 +319,21 @@ Single HTML page with minimal design.
 | Comparison mode | Not needed for portfolio |
 | User level selection | Single model |
 | Hybrid search | Storage limit exceeded |
-| Groq fallback | User requirement: custom model must work |
+| Groq fallback | Custom model is the point |
 
 ---
 
 ## Next Steps
 
-1. **Update model.py** for 50M-100M parameters
-2. **Generate context-format training data** from 28,671 Q&A pairs
-3. **Retrain on HPC** (30-60 min estimated)
-4. **Test coherent generation** with context
-5. **Connect RAG to model** for end-to-end testing
-6. **Deploy to Railway**
+1. ~~Update model architecture~~ ✅ Done (125.8M params)
+2. ~~Train Phase 1 (books)~~ ✅ Done (perplexity 2.20)
+3. ~~Train Phase 2 (context Q&A)~~ ✅ Done (64% accuracy)
+4. **Download model from HPC** ⬜ Pending
+5. **Connect RAG to model** ⬜ Pending
+6. **End-to-end testing** ⬜ Pending
+7. **Deploy to Railway** ⬜ Pending
 
 ---
 
-*Document version: 10.0*
+*Document version: 11.0*
 *Last updated: December 24, 2025*

@@ -1,347 +1,290 @@
 """
-Quantum Computing LLM - Training Script
-Trains the 1.2M parameter transformer on Q&A + book data
+Two-Phase Training Script for Quantum Computing LLM
+
+Phase 1: Pretrain on books (learn coherent prose generation)
+Phase 2: Fine-tune on context Q&A (learn to use RAG context)
+
+Usage:
+    # Phase 1: Book pretraining
+    python train.py --phase 1 --epochs 5
+    
+    # Phase 2: Context Q&A fine-tuning (loads phase 1 checkpoint)
+    python train.py --phase 2 --epochs 10 --checkpoint model/phase1_final.pt
 """
 
 import os
 import sys
-import math
-import time
-import json
 import argparse
-from pathlib import Path
-from datetime import datetime
-
+import time
+import math
 import torch
 import torch.nn as nn
 from torch.cuda.amp import GradScaler, autocast
-from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
 
-from model import create_model, QuantumLLM
-from dataset import create_dataloaders, Tokenizer
+from model import QuantumLLM, DEFAULT_CONFIG, save_config
+from dataset import create_dataloaders
 
 
-def get_lr(step, warmup_steps, max_lr, min_lr, total_steps):
+def get_lr(step, warmup_steps, max_steps, max_lr, min_lr):
     """Cosine learning rate schedule with warmup"""
     if step < warmup_steps:
         return max_lr * step / warmup_steps
-    
-    progress = (step - warmup_steps) / (total_steps - warmup_steps)
-    return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(math.pi * progress))
+    if step > max_steps:
+        return min_lr
+    decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (max_lr - min_lr)
 
 
-def train_epoch(
-    model, train_loader, optimizer, scaler, device,
-    step, total_steps, warmup_steps, max_lr, min_lr, grad_clip,
-    log_interval=100, writer=None
-):
-    """Train for one epoch"""
+def train_epoch(model, train_loader, optimizer, scaler, device, epoch, max_lr, min_lr, warmup_steps, max_steps, global_step):
     model.train()
     total_loss = 0
-    tokens_processed = 0
     start_time = time.time()
     
-    for batch_idx, batch in enumerate(train_loader):
-        batch = batch.to(device)
+    for batch_idx, (x, y) in enumerate(train_loader):
+        x, y = x.to(device), y.to(device)
         
         # Update learning rate
-        lr = get_lr(step, warmup_steps, max_lr, min_lr, total_steps)
+        lr = get_lr(global_step, warmup_steps, max_steps, max_lr, min_lr)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
         
         # Forward pass with mixed precision
-        optimizer.zero_grad()
-        
         with autocast():
-            outputs = model(batch, labels=batch)
-            loss = outputs['loss']
+            logits, loss = model(x, y)
         
         # Backward pass
+        optimizer.zero_grad()
         scaler.scale(loss).backward()
-        
-        # Gradient clipping
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer)
         scaler.update()
         
-        # Stats
         total_loss += loss.item()
-        tokens_processed += batch.numel()
-        step += 1
+        global_step += 1
         
-        # Logging
-        if step % log_interval == 0:
+        # Log progress
+        if batch_idx % 50 == 0:
             elapsed = time.time() - start_time
-            tokens_per_sec = tokens_processed / elapsed
-            avg_loss = total_loss / (batch_idx + 1)
-            
-            print(f"Step {step:6d} | Loss: {loss.item():.4f} | Avg Loss: {avg_loss:.4f} | "
-                  f"LR: {lr:.2e} | Tok/s: {tokens_per_sec:.0f}")
-            
-            if writer:
-                writer.add_scalar('train/loss', loss.item(), step)
-                writer.add_scalar('train/avg_loss', avg_loss, step)
-                writer.add_scalar('train/lr', lr, step)
-                writer.add_scalar('train/tokens_per_sec', tokens_per_sec, step)
-        
-        if step >= total_steps:
-            break
+            samples_per_sec = (batch_idx + 1) * x.shape[0] / elapsed
+            print(f"  Epoch {epoch} | Batch {batch_idx}/{len(train_loader)} | "
+                  f"Loss: {loss.item():.4f} | LR: {lr:.2e} | "
+                  f"Speed: {samples_per_sec:.1f} samples/s")
     
-    return step, total_loss / len(train_loader)
+    avg_loss = total_loss / len(train_loader)
+    return avg_loss, global_step
 
 
 @torch.no_grad()
 def evaluate(model, val_loader, device):
-    """Evaluate on validation set"""
     model.eval()
     total_loss = 0
-    total_tokens = 0
     
-    for batch in val_loader:
-        batch = batch.to(device)
-        
+    for x, y in val_loader:
+        x, y = x.to(device), y.to(device)
         with autocast():
-            outputs = model(batch, labels=batch)
-            loss = outputs['loss']
-        
-        # Count non-padding tokens
-        non_pad = (batch != 0).sum().item()
-        total_loss += loss.item() * non_pad
-        total_tokens += non_pad
+            logits, loss = model(x, y)
+        total_loss += loss.item()
     
-    avg_loss = total_loss / total_tokens
+    avg_loss = total_loss / len(val_loader)
     perplexity = math.exp(avg_loss)
-    
     return avg_loss, perplexity
 
 
-def save_checkpoint(model, optimizer, scaler, step, loss, path):
-    """Save training checkpoint"""
-    torch.save({
-        'step': step,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'scaler_state_dict': scaler.state_dict(),
-        'loss': loss,
-    }, path)
-    print(f"Saved checkpoint to {path}")
-
-
-def load_checkpoint(model, optimizer, scaler, path):
-    """Load training checkpoint"""
-    checkpoint = torch.load(path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    scaler.load_state_dict(checkpoint['scaler_state_dict'])
-    return checkpoint['step'], checkpoint['loss']
-
-
-def main(args):
-    print("=" * 60)
-    print("Quantum Computing LLM Training")
-    print("=" * 60)
+def main():
+    parser = argparse.ArgumentParser(description='Train Quantum Computing LLM')
     
-    # Device
+    # Phase selection
+    parser.add_argument('--phase', type=int, default=1, choices=[1, 2, 3],
+                        help='Training phase: 1=books, 2=context Q&A, 3=combined')
+    
+    # Data paths
+    parser.add_argument('--tokenizer_path', type=str, default='../tokenizer.json')
+    parser.add_argument('--book_path', type=str, default='../data/combined_books_cleaned.txt')
+    parser.add_argument('--qa_paths', type=str, nargs='+', default=[
+        '../data/claude_qa_context.csv',
+        '../data/cot_qa_context.csv',
+        '../data/stackexchange_qa_context.csv'
+    ])
+    
+    # Model
+    parser.add_argument('--checkpoint', type=str, default=None,
+                        help='Path to checkpoint to resume from')
+    parser.add_argument('--output_dir', type=str, default='../model')
+    
+    # Training hyperparameters
+    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--max_lr', type=float, default=3e-4)
+    parser.add_argument('--min_lr', type=float, default=3e-5)
+    parser.add_argument('--warmup_ratio', type=float, default=0.1)
+    parser.add_argument('--max_length', type=int, default=1024)
+    parser.add_argument('--book_weight', type=float, default=0.3,
+                        help='Weight for books in combined training (phase 3)')
+    
+    # System
+    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--seed', type=int, default=42)
+    
+    args = parser.parse_args()
+    
+    # Setup
+    torch.manual_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
     
     if torch.cuda.is_available():
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
+        print(f"GPU: {torch.cuda.get_device_name()}")
         print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     
     # Create output directory
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # TensorBoard
-    writer = SummaryWriter(output_dir / 'logs')
-    
     # Create dataloaders
-    print("\n" + "-" * 40)
-    print("Loading data...")
-    print("-" * 40)
+    print(f"\n{'='*60}")
+    print(f"PHASE {args.phase} TRAINING")
+    print(f"{'='*60}")
     
     train_loader, val_loader, tokenizer = create_dataloaders(
-        qa_path=args.qa_path,
-        book_path=args.book_path,
         tokenizer_path=args.tokenizer_path,
-        batch_size=args.batch_size,
+        book_path=args.book_path if args.phase in [1, 3] else None,
+        qa_csv_paths=args.qa_paths if args.phase in [2, 3] else None,
         max_length=args.max_length,
-        val_split=args.val_split,
-        num_workers=args.num_workers,
+        batch_size=args.batch_size,
+        phase=args.phase,
+        book_weight=args.book_weight,
+        num_workers=args.num_workers
     )
     
-    # Create model
-    print("\n" + "-" * 40)
-    print("Creating model...")
-    print("-" * 40)
+    print(f"Train batches: {len(train_loader):,}")
+    print(f"Val batches: {len(val_loader):,}")
     
-    model_config = {
-        'vocab_size': len(tokenizer),
-        'dim': args.dim,
-        'n_layers': args.n_layers,
-        'n_heads': args.n_heads,
-        'max_seq_len': args.max_length,
-        'ff_dim': args.ff_dim,
-        'dropout': args.dropout,
-        'pad_token_id': tokenizer.pad_token_id,
-    }
+    # Create or load model
+    if args.checkpoint:
+        print(f"\nLoading checkpoint: {args.checkpoint}")
+        model = QuantumLLM.load(args.checkpoint, device)
+    else:
+        print(f"\nCreating new model...")
+        model = QuantumLLM(DEFAULT_CONFIG)
     
-    model = create_model(model_config)
     model = model.to(device)
     
     # Save config
-    with open(output_dir / 'config.json', 'w') as f:
-        json.dump(model_config, f, indent=2)
+    save_config(DEFAULT_CONFIG, output_dir / 'config.json')
     
     # Optimizer
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.max_lr,
         betas=(0.9, 0.95),
-        weight_decay=args.weight_decay,
+        weight_decay=0.1
     )
     
-    # Mixed precision scaler
     scaler = GradScaler()
     
-    # Calculate training steps
-    steps_per_epoch = len(train_loader)
-    total_steps = args.epochs * steps_per_epoch
+    # Calculate steps
+    total_steps = len(train_loader) * args.epochs
     warmup_steps = int(total_steps * args.warmup_ratio)
     
     print(f"\nTraining config:")
     print(f"  Epochs: {args.epochs}")
-    print(f"  Steps per epoch: {steps_per_epoch:,}")
+    print(f"  Batch size: {args.batch_size}")
     print(f"  Total steps: {total_steps:,}")
     print(f"  Warmup steps: {warmup_steps:,}")
-    print(f"  Batch size: {args.batch_size}")
     print(f"  Max LR: {args.max_lr}")
     print(f"  Min LR: {args.min_lr}")
     
-    # Resume from checkpoint
-    start_step = 0
-    if args.resume:
-        print(f"\nResuming from {args.resume}")
-        start_step, _ = load_checkpoint(model, optimizer, scaler, args.resume)
-        print(f"Resumed at step {start_step}")
-    
     # Training loop
-    print("\n" + "=" * 60)
-    print("Starting training...")
-    print("=" * 60 + "\n")
-    
-    step = start_step
+    global_step = 0
     best_val_loss = float('inf')
     
-    for epoch in range(args.epochs):
-        print(f"\n--- Epoch {epoch + 1}/{args.epochs} ---\n")
+    print(f"\n{'='*60}")
+    print("Starting training...")
+    print(f"{'='*60}\n")
+    
+    train_start = time.time()
+    
+    for epoch in range(1, args.epochs + 1):
+        epoch_start = time.time()
         
-        step, train_loss = train_epoch(
+        # Train
+        train_loss, global_step = train_epoch(
             model, train_loader, optimizer, scaler, device,
-            step, total_steps, warmup_steps,
-            args.max_lr, args.min_lr, args.grad_clip,
-            log_interval=args.log_interval,
-            writer=writer,
+            epoch, args.max_lr, args.min_lr, warmup_steps, total_steps, global_step
         )
         
         # Evaluate
-        val_loss, perplexity = evaluate(model, val_loader, device)
-        print(f"\nEpoch {epoch + 1} complete:")
+        val_loss, val_ppl = evaluate(model, val_loader, device)
+        
+        epoch_time = time.time() - epoch_start
+        
+        print(f"\nEpoch {epoch}/{args.epochs} complete:")
         print(f"  Train Loss: {train_loss:.4f}")
         print(f"  Val Loss: {val_loss:.4f}")
-        print(f"  Perplexity: {perplexity:.2f}")
-        
-        writer.add_scalar('val/loss', val_loss, step)
-        writer.add_scalar('val/perplexity', perplexity, step)
+        print(f"  Val Perplexity: {val_ppl:.2f}")
+        print(f"  Time: {epoch_time/60:.1f} min")
         
         # Save checkpoint
-        save_checkpoint(
-            model, optimizer, scaler, step, val_loss,
-            output_dir / f'checkpoint_epoch{epoch + 1}.pt'
-        )
+        checkpoint_path = output_dir / f'phase{args.phase}_epoch{epoch}.pt'
+        model.save(checkpoint_path)
+        print(f"  Saved: {checkpoint_path}")
         
         # Save best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            save_checkpoint(
-                model, optimizer, scaler, step, val_loss,
-                output_dir / 'best_model.pt'
-            )
-            print(f"  New best model! Val Loss: {val_loss:.4f}")
-        
-        if step >= total_steps:
-            break
+            best_path = output_dir / f'phase{args.phase}_best.pt'
+            model.save(best_path)
+            print(f"  New best model saved!")
+    
+    total_time = time.time() - train_start
     
     # Save final model
-    torch.save(model.state_dict(), output_dir / 'final_model.pt')
-    print(f"\nTraining complete! Final model saved to {output_dir / 'final_model.pt'}")
+    final_path = output_dir / f'phase{args.phase}_final.pt'
+    model.save(final_path)
     
-    writer.close()
+    print(f"\n{'='*60}")
+    print("Training complete!")
+    print(f"{'='*60}")
+    print(f"Total time: {total_time/60:.1f} min")
+    print(f"Best val loss: {best_val_loss:.4f}")
+    print(f"Best val perplexity: {math.exp(best_val_loss):.2f}")
+    print(f"Final model: {final_path}")
+    
+    # Test generation
+    print(f"\n{'='*60}")
+    print("Testing generation...")
+    print(f"{'='*60}")
+    
+    model.eval()
+    
+    if args.phase == 1:
+        # Book-style prompt
+        prompts = [
+            "Quantum computing is",
+            "The qubit can exist in",
+            "Entanglement allows two particles to"
+        ]
+    else:
+        # Context-style prompt
+        prompts = [
+            "Context: Q: What is superposition? A: Superposition allows a qubit to be in multiple states at once. Question: What is a qubit? Answer:",
+            "Context: Q: What is entanglement? A: Entanglement correlates two qubits. Question: How does quantum computing work? Answer:"
+        ]
+    
+    for prompt in prompts:
+        tokens = tokenizer.encode(prompt).ids
+        x = torch.tensor([tokens], device=device)
+        
+        with torch.no_grad():
+            output = model.generate(x, max_new_tokens=100, temperature=0.8)
+        
+        generated = tokenizer.decode(output[0].tolist())
+        print(f"\nPrompt: {prompt}")
+        print(f"Generated: {generated[:300]}...")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train Quantum Computing LLM")
-    
-    # Data paths
-    parser.add_argument('--qa_path', type=str, default='../data/combined_qa_final.csv',
-                        help='Path to Q&A CSV file')
-    parser.add_argument('--book_path', type=str, default='../data/combined_books.txt',
-                        help='Path to book text file')
-    parser.add_argument('--tokenizer_path', type=str, default='../tokenizer.json',
-                        help='Path to tokenizer JSON file')
-    parser.add_argument('--output_dir', type=str, default='../model',
-                        help='Output directory for checkpoints')
-    
-    # Model config
-    parser.add_argument('--dim', type=int, default=64,
-                        help='Model embedding dimension')
-    parser.add_argument('--n_layers', type=int, default=4,
-                        help='Number of transformer layers')
-    parser.add_argument('--n_heads', type=int, default=4,
-                        help='Number of attention heads')
-    parser.add_argument('--ff_dim', type=int, default=256,
-                        help='Feed-forward hidden dimension')
-    parser.add_argument('--dropout', type=float, default=0.1,
-                        help='Dropout rate')
-    parser.add_argument('--max_length', type=int, default=512,
-                        help='Maximum sequence length')
-    
-    # Training config
-    parser.add_argument('--epochs', type=int, default=3,
-                        help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=64,
-                        help='Training batch size')
-    parser.add_argument('--max_lr', type=float, default=3e-4,
-                        help='Maximum learning rate')
-    parser.add_argument('--min_lr', type=float, default=3e-5,
-                        help='Minimum learning rate')
-    parser.add_argument('--warmup_ratio', type=float, default=0.1,
-                        help='Warmup ratio of total steps')
-    parser.add_argument('--weight_decay', type=float, default=0.1,
-                        help='Weight decay')
-    parser.add_argument('--grad_clip', type=float, default=1.0,
-                        help='Gradient clipping norm')
-    parser.add_argument('--val_split', type=float, default=0.05,
-                        help='Validation split ratio')
-    
-    # Other
-    parser.add_argument('--num_workers', type=int, default=4,
-                        help='DataLoader workers')
-    parser.add_argument('--log_interval', type=int, default=100,
-                        help='Logging interval (steps)')
-    parser.add_argument('--resume', type=str, default=None,
-                        help='Resume from checkpoint')
-    parser.add_argument('--seed', type=int, default=42,
-                        help='Random seed')
-    
-    args = parser.parse_args()
-    
-    # Set seed
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
-    
-    main(args)
+    main()
