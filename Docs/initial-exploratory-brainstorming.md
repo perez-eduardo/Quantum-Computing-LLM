@@ -27,14 +27,16 @@ Need a stack that is:
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| Custom | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| Custom | Custom 125.8M | ~35-37s | ✅ Implemented |
 | Production | Groq API | ~1-2s | ⬜ Add later |
 
 ### Stack
 
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
-| **Frontend + Backend** | Railway (Hobby) | $5/month | Monorepo, always on |
+| **Frontend** | Flask + Jinja | $0 | Port 3000 |
+| **Backend** | FastAPI | $0 | Port 8000 |
+| **Hosting** | Railway (Hobby) | $5/month | Monorepo, always on |
 | **LLM (Custom)** | Custom 125.8M | $0 | Lazy loaded, ~35-37s |
 | **LLM (Production)** | Groq API | $0 | Free tier (add later) |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
@@ -61,15 +63,44 @@ Quantum-Computing-LLM/
 │       └── model.py                    # QuantumLLM architecture
 │
 ├── backend/
-│   ├── scripts/                        # ✅ EXISTING
+│   ├── scripts/                        # ✅ Existing utilities
 │   │   ├── retrieval.py                # Retriever class
 │   │   ├── inference.py                # QuantumInference class
 │   │   └── pipeline.py                 # QuantumRAGPipeline class
-│   └── app/                            # ⬜ TO CREATE
-│       ├── main.py                     # FastAPI endpoints
-│       └── config.py                   # Environment variables
+│   └── app/                            # ✅ FastAPI app
+│       ├── __init__.py
+│       ├── config.py                   # Environment variables
+│       └── main.py                     # Endpoints, lazy loading
+│
+├── frontend/                           # ✅ Flask app
+│   ├── app.py                          # Flask server (port 3000)
+│   ├── requirements.txt                # flask, requests
+│   ├── static/
+│   │   └── style.css                   # All styles
+│   └── templates/
+│       └── index.html                  # Jinja template with JS
 │
 └── .env                                # API keys
+```
+
+---
+
+## Run Commands
+
+**Terminal 1: Backend**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2: Frontend**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd frontend
+python app.py
 ```
 
 ---
@@ -109,7 +140,7 @@ class QuantumRAGPipeline:
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Custom model (first)
+                                                              Custom model (implemented)
                                                               Groq API (later)
 ```
 
@@ -225,6 +256,27 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
+## Frontend Features (Flask + Jinja)
+
+### Welcome Screen
+- Animated atom icon
+- 5 starter questions
+- Free-tier disclaimer (40-90s warning)
+
+### Chat Interface
+- User messages (blue, right-aligned)
+- AI messages (gray, left-aligned)
+- Response time display
+- Suggested follow-up button
+
+### Loading Indicator
+- Animated atom with orbiting electrons
+- Rotating status messages (every 3s)
+- Quantum facts (every 8s)
+- Patience reminder
+
+---
+
 ## Cost Summary
 
 | Component | Monthly Cost |
@@ -263,7 +315,9 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 10. **Build backend classes first.** Retriever, Inference, Pipeline exist and work.
 
+11. **Flask + Jinja is simpler than React.** Single Python file, no npm/node needed.
+
 ---
 
-*Document version: 14.0*
+*Document version: 15.0*
 *Last updated: December 26, 2025*

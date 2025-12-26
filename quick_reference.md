@@ -10,6 +10,20 @@ cd E:\Personal_projects\Quantum-Computing-LLM
 
 ---
 
+
+## backend
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+## frontend
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd frontend
+python app.py
+
+
 ## HPC (SSH)
 
 ### Connect
@@ -27,6 +41,8 @@ source venv/bin/activate
 ```bash
 cd ~/hpc-share/quantum-llm && source venv/bin/activate
 ```
+
+
 
 
 ### Voyage api

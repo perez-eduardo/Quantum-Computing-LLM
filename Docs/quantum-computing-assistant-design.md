@@ -35,11 +35,11 @@ This project proves ability to:
 | RAG System | ✅ COMPLETE (100% retrieval) |
 | Parameter Tuning | ✅ COMPLETE (temp=0.2, top_k=30) |
 | Backend Classes | ✅ COMPLETE (Retriever, QuantumInference, Pipeline) |
-| FastAPI App | ⬜ IN PROGRESS |
-| Frontend | ⬜ Pending |
+| FastAPI App | ✅ COMPLETE (lazy loading, suggested questions) |
+| Frontend | ✅ COMPLETE (Flask + Jinja) |
 | Deployment | ⬜ Pending |
 
-**Next Action:** Create FastAPI app (custom model first, Groq later)
+**Next Action:** Deploy to Railway (Phase 5)
 
 ---
 
@@ -60,16 +60,50 @@ Quantum-Computing-LLM/
 │       └── model.py                    # QuantumLLM architecture
 │
 ├── backend/
-│   ├── scripts/                        # ✅ EXISTING
+│   ├── scripts/                        # ✅ Existing utilities
 │   │   ├── retrieval.py                # Retriever class
 │   │   ├── inference.py                # QuantumInference class
 │   │   └── pipeline.py                 # QuantumRAGPipeline class
-│   └── app/                            # ⬜ TO CREATE
-│       ├── main.py                     # FastAPI endpoints
-│       └── config.py                   # Environment variables
+│   └── app/                            # ✅ FastAPI app
+│       ├── __init__.py
+│       ├── config.py                   # Environment variables
+│       └── main.py                     # Endpoints, lazy loading
+│
+├── frontend/                           # ✅ Flask app
+│   ├── app.py                          # Flask server (port 3000)
+│   ├── requirements.txt                # flask, requests
+│   ├── static/
+│   │   └── style.css                   # All styles
+│   └── templates/
+│       └── index.html                  # Jinja template with JS
 │
 └── .env                                # API keys
 ```
+
+---
+
+## Run Commands
+
+**Terminal 1: Backend (FastAPI)**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2: Frontend (Flask)**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd frontend
+python app.py
+```
+
+| Server | Framework | Port | Purpose |
+|--------|-----------|------|---------|
+| Backend | FastAPI | 8000 | ML model, RAG pipeline, API |
+| Frontend | Flask | 3000 | Serves UI, proxies to backend |
 
 ---
 
@@ -116,7 +150,7 @@ class QuantumRAGPipeline:
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| **Custom** | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| **Custom** | Custom 125.8M | ~35-37s | ✅ Implemented |
 | **Production** | Groq API | ~1-2s | ⬜ Add later |
 
 ### Pipeline
@@ -124,7 +158,7 @@ class QuantumRAGPipeline:
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Custom model (first)
+                                                              Custom model (implemented)
                                                               Groq API (later)
 ```
 
@@ -132,6 +166,8 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 
 | Component | Provider | Speed | Cost |
 |-----------|----------|-------|------|
+| **Frontend** | Flask + Jinja | instant | $0 |
+| **Backend** | FastAPI | instant | $0 |
 | **Generation (Custom)** | Custom 125.8M | ~35-37s | $0 (lazy loaded) |
 | **Generation (Groq)** | Groq API | ~1-2s | $0 (free tier) |
 | **Embeddings** | Voyage AI | ~100ms | $0 (free tier) |
@@ -257,28 +293,45 @@ Response:
 {
   "answer": "Quantum entanglement is a phenomenon where...",
   "response_time_ms": 36000,
-  "sources": [
-    {
-      "source": "claude",
-      "relevance": 0.89
-    }
-  ]
+  "model_loaded_fresh": false,
+  "suggested_question": "What really is Quantum Entanglement and what are its benefits?"
 }
 ```
 
+### Suggested Question Feature
+
+Extracts key terms from answer, scores retrieved questions by term matches, filters out questions >60% similar to original. No extra LLM call, no added latency.
+
 ---
 
-## UI Design
+## UI Design (Flask + Jinja)
 
-Single HTML page with minimal design.
+### Welcome Screen
+- Animated atom icon (CSS keyframes)
+- Welcome title and explanation text
+- Yellow disclaimer box: "Free-tier server, 40-90s response time"
+- 5 clickable starter questions:
+  - "What is a qubit?"
+  - "What is superposition?"
+  - "What is quantum entanglement?"
+  - "What is a quantum gate?"
+  - "Why is quantum computing important?"
 
-| Element | Description |
-|---------|-------------|
-| Header | Title, brief description |
-| Input area | Text input for questions |
-| Response area | Answer with sources |
-| **Demo toggle** | Switch between Groq and custom model (later) |
-| Footer | Disclaimer, portfolio link |
+### Chat Interface
+- User messages (blue, right-aligned)
+- AI messages (gray, left-aligned)
+- Response time display
+- Suggested follow-up button
+
+### Loading Indicator
+- Animated atom with orbiting electrons
+- Rotating status messages (every 3s):
+  - "Searching knowledge base..."
+  - "Retrieving relevant context..."
+  - "Processing with 125.8M parameters..."
+  - etc.
+- Quantum facts (every 8s)
+- Patience reminder: "40-90 seconds on free-tier server"
 
 ### Demo Mode UI (Later)
 
@@ -344,13 +397,13 @@ When demo mode is enabled:
 2. ~~Set up RAG system~~ ✅ Done (100% accuracy)
 3. ~~Tune generation params~~ ✅ Done (temp=0.2, top_k=30)
 4. ~~Create backend classes~~ ✅ Done (Retriever, Inference, Pipeline)
-5. **Create FastAPI app** ⬜ Pending
-6. **Add lazy loading** ⬜ Pending
-7. **Build frontend** ⬜ Pending
-8. **Deploy to Railway** ⬜ Pending
-9. **Add Groq integration** ⬜ Pending (later)
+5. ~~Create FastAPI app~~ ✅ Done (lazy loading, suggested questions)
+6. ~~Build frontend~~ ✅ Done (Flask + Jinja)
+7. **Deploy to Railway** ⬜ Pending
+8. **Add Groq integration** ⬜ Pending (later)
+9. **Add demo mode toggle** ⬜ Pending (later)
 
 ---
 
-*Document version: 17.0*
+*Document version: 18.0*
 *Last updated: December 26, 2025*

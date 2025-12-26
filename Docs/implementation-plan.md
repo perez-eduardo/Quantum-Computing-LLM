@@ -13,9 +13,10 @@
 
 **Phase 1:** Training Pipeline - ✅ COMPLETE (v5 trained, 100% pass rate)
 **Phase 2:** RAG System - ✅ COMPLETE (100% retrieval accuracy)
-**Phase 3:** Backend - ⬜ IN PROGRESS
+**Phase 3:** Backend - ✅ COMPLETE (FastAPI with lazy loading)
+**Phase 4:** Frontend - ✅ COMPLETE (Flask + Jinja)
 
-**Next Action:** Create FastAPI app wrapping existing pipeline (custom model first, Groq later)
+**Next Action:** Deploy to Railway (Phase 5)
 
 ---
 
@@ -42,17 +43,25 @@ Quantum-Computing-LLM/
 │       └── evaluate.py                 # Evaluation script
 │
 ├── backend/
-│   ├── scripts/                        # ✅ EXISTING utilities
+│   ├── scripts/                        # ✅ Existing utilities
 │   │   ├── retrieval.py                # Retriever class (Voyage + Neon)
 │   │   ├── inference.py                # QuantumInference class
 │   │   ├── pipeline.py                 # QuantumRAGPipeline class
 │   │   ├── verify_params.py            # Parameter testing
 │   │   ├── cache_contexts.py           # HPC context caching
 │   │   └── ...
-│   └── app/                            # ⬜ TO CREATE (FastAPI)
-│       ├── main.py
-│       ├── config.py
-│       └── ...
+│   └── app/                            # ✅ FastAPI app
+│       ├── __init__.py
+│       ├── config.py                   # Environment variables
+│       └── main.py                     # Endpoints, lazy loading
+│
+├── frontend/                           # ✅ Flask app
+│   ├── app.py                          # Flask server (port 3000)
+│   ├── requirements.txt                # flask, requests
+│   ├── static/
+│   │   └── style.css                   # All styles
+│   └── templates/
+│       └── index.html                  # Jinja template with JS
 │
 ├── data/
 │   ├── raw/
@@ -61,6 +70,31 @@ Quantum-Computing-LLM/
 ├── .env                                # API keys
 └── requirements.txt
 ```
+
+---
+
+## Run Commands
+
+**Terminal 1: Backend (FastAPI)**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2: Frontend (Flask)**
+```powershell
+cd E:\Personal_projects\Quantum-Computing-LLM
+.\venv\Scripts\Activate
+cd frontend
+python app.py
+```
+
+| Server | Framework | Port | Purpose |
+|--------|-----------|------|---------|
+| Backend | FastAPI | 8000 | ML model, RAG pipeline, API |
+| Frontend | Flask | 3000 | Serves UI, proxies to backend |
 
 ---
 
@@ -212,35 +246,40 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Achieve 100% pass rate | ✅ Done | Best config |
 | Fix extraction function | ✅ Done | First answer, not last |
 
+### Phase 3: Backend (FastAPI)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create `backend/app/config.py` | ✅ Done | Env vars, model paths |
+| Create `backend/app/main.py` | ✅ Done | Endpoints, lazy loading |
+| Implement lazy model loading | ✅ Done | 5 min idle timeout |
+| Test `/query` endpoint | ✅ Done | 40-90s response time |
+| Suggested question feature | ✅ Done | From retrieved results |
+
+### Phase 4: Frontend (Flask + Jinja)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create Flask app | ✅ Done | Proxies to backend API |
+| Welcome screen | ✅ Done | Atom animation, 5 starter questions |
+| Chat interface | ✅ Done | User/AI message bubbles |
+| Loading indicator | ✅ Done | Rotating messages + quantum facts |
+| Free-tier disclaimer | ✅ Done | 40-90s warning |
+| Suggested follow-up button | ✅ Done | Clickable next question |
+
 ---
 
 ## What Is Next
-
-### Phase 3: Backend (FastAPI)
-
-| Task | Priority | Status |
-|------|----------|--------|
-| Create `backend/app/config.py` | High | ⬜ Pending |
-| Create `backend/app/main.py` (FastAPI) | High | ⬜ Pending |
-| Implement lazy model loading | High | ⬜ Pending |
-| Test `/query` endpoint | High | ⬜ Pending |
-| Add Groq integration | Medium | ⬜ Pending (later) |
-| Add demo mode toggle | Medium | ⬜ Pending (later) |
-
-### Phase 4: Frontend
-
-| Task | Priority | Status |
-|------|----------|--------|
-| Single HTML page | Medium | ⬜ Pending |
-| API integration | Medium | ⬜ Pending |
-| Demo mode toggle UI | Medium | ⬜ Pending |
 
 ### Phase 5: Deployment
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Deploy to Railway | Medium | ⬜ Pending |
-| Set spending caps | Medium | ⬜ Pending |
+| Deploy to Railway | High | ⬜ Pending |
+| Set spending caps | High | ⬜ Pending |
+| Test production endpoints | High | ⬜ Pending |
+| Add Groq integration | Medium | ⬜ Pending (later) |
+| Add demo mode toggle | Medium | ⬜ Pending (later) |
 
 ---
 
@@ -264,6 +303,8 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 9. **RAG pipeline classes exist.** Retriever, QuantumInference, QuantumRAGPipeline ready to use.
 
+10. **Flask + Jinja frontend.** Simpler than React, single Python file with Jinja templates.
+
 ---
 
-*Document version: 19.0*
+*Document version: 20.0*

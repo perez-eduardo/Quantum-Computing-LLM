@@ -55,14 +55,20 @@
         </div>
 
         <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)">
-            <input
-                type="text"
-                class="input-bar__input"
-                id="input-field"
-                placeholder="Ask a question about quantum computing..."
-                autocomplete="off"
-            >
-            <button type="submit" class="input-bar__button" id="send-btn">Send</button>
+            <div class="input-bar__loader" id="input-loader">
+                <img src="{{ url_for('static', filename='loading.gif') }}" alt="Loading" class="loading__gif" id="loading-gif">
+                <canvas class="loading__canvas" id="loading-canvas" style="display: none;"></canvas>
+            </div>
+            <div class="input-bar__row">
+                <input
+                    type="text"
+                    class="input-bar__input"
+                    id="input-field"
+                    placeholder="Ask a question about quantum computing..."
+                    autocomplete="off"
+                >
+                <button type="submit" class="input-bar__button" id="send-btn">Send</button>
+            </div>
         </form>
     </div>
 
@@ -70,27 +76,17 @@
         // State
         let isLoading = false;
         let hasMessages = false;
+        let gifShown = false;
 
-        // Loading messages and facts
-        const LOADING_MESSAGES = [
-            "Searching knowledge base...",
-            "Retrieving relevant context...",
-            "Preparing quantum insights...",
-            "Generating response...",
-            "Almost there...",
-            "Processing with 125.8M parameters...",
-            "Analyzing quantum concepts...",
-            "Formulating answer..."
-        ];
-
-        const QUANTUM_FACTS = [
-            "A quantum computer with 300 qubits could represent more states than there are atoms in the observable universe.",
-            "Quantum entanglement was called 'spooky action at a distance' by Einstein.",
-            "The first quantum computer was built in 1998 with just 2 qubits.",
-            "Quantum computers must be kept at temperatures colder than outer space.",
-            "Google's Sycamore processor achieved quantum supremacy in 2019.",
-            "Quantum computers could break most current encryption methods.",
-            "Superposition allows a qubit to be 0 and 1 simultaneously."
+        // Actual pipeline steps with approximate timings (in seconds)
+        const PIPELINE_STEPS = [
+            { text: "Embedding your question with Voyage AI", duration: 11 },
+            { text: "Searching knowledge base (28,071 Q&A pairs)", duration: 11 },
+            { text: "Retrieved relevant context from Neon database", duration: 11 },
+            { text: "Ranking results by relevance", duration: 11 },
+            { text: "Building prompt with context", duration: 11 },
+            { text: "Loading 125.8M parameter model", duration: 11 },
+            { text: "Generating response", duration: 60 }
         ];
 
         // DOM elements
@@ -99,6 +95,9 @@
         const messages = document.getElementById('messages');
         const inputField = document.getElementById('input-field');
         const sendBtn = document.getElementById('send-btn');
+        const inputLoader = document.getElementById('input-loader');
+        const loadingGif = document.getElementById('loading-gif');
+        const loadingCanvas = document.getElementById('loading-canvas');
 
         // Handle form submission
         function handleSubmit(event) {
@@ -110,9 +109,29 @@
             }
         }
 
+        // Handle suggested question button click
+        function handleSuggestedClick(button, question) {
+            // Hide the button's container
+            button.parentElement.style.display = 'none';
+            sendQuestion(question);
+        }
+
+        // Hide any suggested buttons that match the question
+        function hideSuggestedButtons(question) {
+            const buttons = document.querySelectorAll('.suggested__button');
+            buttons.forEach(btn => {
+                if (btn.textContent.trim().toLowerCase() === question.trim().toLowerCase()) {
+                    btn.parentElement.style.display = 'none';
+                }
+            });
+        }
+
         // Send a question to the API
         async function sendQuestion(question) {
             if (isLoading) return;
+
+            // Hide any matching suggested buttons
+            hideSuggestedButtons(question);
 
             // Hide welcome, show messages
             if (!hasMessages) {
@@ -158,24 +177,81 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message message--${type}`;
 
-            let html = `<div class="message__content">${escapeHtml(content)}</div>`;
+            if (type === 'ai') {
+                // For AI messages, use typing effect
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message__content';
+                messageDiv.appendChild(contentDiv);
 
-            if (type === 'ai' && responseTime) {
-                html += `<div class="message__meta">Response time: ${(responseTime / 1000).toFixed(1)}s</div>`;
+                // Add meta and suggested question containers (hidden until typing done)
+                let metaDiv = null;
+                let suggestedDiv = null;
+
+                if (responseTime) {
+                    metaDiv = document.createElement('div');
+                    metaDiv.className = 'message__meta';
+                    metaDiv.style.opacity = '0';
+                    metaDiv.textContent = `Response time: ${(responseTime / 1000).toFixed(1)}s`;
+                    messageDiv.appendChild(metaDiv);
+                }
+
+                if (suggestedQuestion) {
+                    suggestedDiv = document.createElement('div');
+                    suggestedDiv.className = 'suggested';
+                    suggestedDiv.id = `suggested-${Date.now()}`;
+                    suggestedDiv.style.opacity = '0';
+                    suggestedDiv.innerHTML = `<button class="suggested__button" onclick="handleSuggestedClick(this, '${escapeHtml(suggestedQuestion)}')">${escapeHtml(suggestedQuestion)}</button>`;
+                    messageDiv.appendChild(suggestedDiv);
+                }
+
+                messages.appendChild(messageDiv);
+                scrollToBottom();
+
+                // Type out the content
+                typeText(contentDiv, content, () => {
+                    // Show meta and suggested after typing completes
+                    if (metaDiv) {
+                        metaDiv.style.transition = 'opacity 0.3s ease';
+                        metaDiv.style.opacity = '1';
+                    }
+                    if (suggestedDiv) {
+                        suggestedDiv.style.transition = 'opacity 0.3s ease';
+                        suggestedDiv.style.opacity = '1';
+                    }
+                    // Pause GIF after typing is done
+                    pauseGif();
+                });
+            } else {
+                // For user/error messages, show immediately
+                let html = `<div class="message__content">${escapeHtml(content)}</div>`;
+                messageDiv.innerHTML = html;
+                messages.appendChild(messageDiv);
+                scrollToBottom();
+                
+                // Pause GIF for error messages
+                if (type === 'error') {
+                    pauseGif();
+                }
+            }
+        }
+
+        // Typing effect function
+        function typeText(element, text, onComplete) {
+            let index = 0;
+            const speed = 15; // milliseconds per character
+
+            function type() {
+                if (index < text.length) {
+                    element.textContent += text.charAt(index);
+                    index++;
+                    scrollToBottom();
+                    setTimeout(type, speed);
+                } else {
+                    if (onComplete) onComplete();
+                }
             }
 
-            if (type === 'ai' && suggestedQuestion) {
-                html += `
-                    <div class="suggested">
-                        <div class="suggested__label">Suggested follow-up:</div>
-                        <button class="suggested__button" onclick="sendQuestion('${escapeHtml(suggestedQuestion)}')">${escapeHtml(suggestedQuestion)}</button>
-                    </div>
-                `;
-            }
-
-            messageDiv.innerHTML = html;
-            messages.appendChild(messageDiv);
-            scrollToBottom();
+            type();
         }
 
         // Add loading indicator
@@ -184,82 +260,109 @@
             loadingDiv.className = 'loading';
             loadingDiv.id = 'loading-indicator';
 
-            const randomFact = QUANTUM_FACTS[Math.floor(Math.random() * QUANTUM_FACTS.length)];
-
             loadingDiv.innerHTML = `
-                <div class="loading__animation">
-                    <div class="atom atom--animated">
-                        <div class="atom__nucleus"></div>
-                        <div class="atom__orbit atom__orbit--1">
-                            <div class="atom__electron"></div>
-                        </div>
-                        <div class="atom__orbit atom__orbit--2">
-                            <div class="atom__electron"></div>
-                        </div>
-                        <div class="atom__orbit atom__orbit--3">
-                            <div class="atom__electron"></div>
-                        </div>
-                    </div>
+                <div class="loading__bubble" id="loading-bubble">
+                    <span class="loading__message" id="loading-message">${PIPELINE_STEPS[0].text}</span><span class="loading__dots-text" id="loading-dots-text"></span>
                 </div>
-                <div class="loading__content">
-                    <div class="loading__status">
-                        <span class="loading__message" id="loading-message">${LOADING_MESSAGES[0]}</span>
-                        <span class="loading__dots" id="loading-dots"></span>
-                    </div>
-                    <div class="loading__fact">
-                        <span class="loading__fact-label">Did you know?</span>
-                        <span class="loading__fact-text" id="loading-fact">${randomFact}</span>
-                    </div>
-                    <div class="loading__patience">
-                        Please wait, this typically takes 40-90 seconds on our free-tier server.
-                    </div>
+                <div class="loading__patience">
+                    This typically takes 40-90 seconds on our free-tier CPU server.
                 </div>
             `;
 
             messages.appendChild(loadingDiv);
             scrollToBottom();
 
-            // Start animations
+            // Show and play GIF animation
+            showGif();
+            playGif();
+
+            // Start stepping through pipeline
             startLoadingAnimations();
 
             return loadingDiv;
         }
 
+        // Show the GIF loader area
+        function showGif() {
+            inputLoader.classList.add('input-bar__loader--visible');
+            gifShown = true;
+        }
+
+        // Play GIF animation (reload to restart, show img, hide canvas)
+        function playGif() {
+            const src = loadingGif.src;
+            loadingGif.src = '';
+            loadingGif.src = src;
+            loadingGif.style.display = 'block';
+            loadingCanvas.style.display = 'none';
+        }
+
+        // Pause GIF animation (capture to canvas, show canvas, hide img)
+        function pauseGif() {
+            if (!gifShown) return;
+            
+            loadingCanvas.width = loadingGif.naturalWidth || loadingGif.width;
+            loadingCanvas.height = loadingGif.naturalHeight || loadingGif.height;
+            
+            const ctx = loadingCanvas.getContext('2d');
+            ctx.drawImage(loadingGif, 0, 0);
+            
+            loadingCanvas.style.display = 'block';
+            loadingGif.style.display = 'none';
+        }
+
         // Loading animation intervals
-        let messageInterval, factInterval, dotsInterval;
+        let stepTimeouts = [];
+        let dotsInterval = null;
 
         function startLoadingAnimations() {
-            let messageIndex = 0;
+            let elapsed = 0;
+            
+            // Schedule each step based on its duration with fade transition
+            PIPELINE_STEPS.forEach((step, index) => {
+                if (index === 0) return; // First step shown immediately
+                
+                elapsed += PIPELINE_STEPS[index - 1].duration * 1000;
+                
+                const timeout = setTimeout(() => {
+                    const messageEl = document.getElementById('loading-message');
+                    const dotsEl = document.getElementById('loading-dots-text');
+                    
+                    if (messageEl) {
+                        // Fade out text only
+                        messageEl.style.opacity = '0';
+                        if (dotsEl) dotsEl.style.opacity = '0';
+                        
+                        // Change text and fade in after fade out completes
+                        setTimeout(() => {
+                            messageEl.textContent = step.text;
+                            messageEl.style.opacity = '1';
+                            if (dotsEl) dotsEl.style.opacity = '1';
+                        }, 400);
+                    }
+                }, elapsed);
+                
+                stepTimeouts.push(timeout);
+            });
+
+            // Animate dots (0, 1, 2, 3, repeat)
             let dotsCount = 0;
-
-            // Rotate messages every 3 seconds
-            messageInterval = setInterval(() => {
-                messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
-                const el = document.getElementById('loading-message');
-                if (el) el.textContent = LOADING_MESSAGES[messageIndex];
-            }, 3000);
-
-            // Rotate facts every 8 seconds
-            factInterval = setInterval(() => {
-                const factEl = document.getElementById('loading-fact');
-                if (factEl) {
-                    const randomFact = QUANTUM_FACTS[Math.floor(Math.random() * QUANTUM_FACTS.length)];
-                    factEl.textContent = randomFact;
-                }
-            }, 8000);
-
-            // Animate dots every 500ms
             dotsInterval = setInterval(() => {
-                dotsCount = (dotsCount + 1) % 4;
-                const dotsEl = document.getElementById('loading-dots');
-                if (dotsEl) dotsEl.textContent = '.'.repeat(dotsCount);
-            }, 500);
+                const dotsEl = document.getElementById('loading-dots-text');
+                if (dotsEl) {
+                    dotsEl.textContent = '.'.repeat(dotsCount);
+                    dotsCount = (dotsCount + 1) % 4;
+                }
+            }, 400);
         }
 
         function stopLoadingAnimations() {
-            clearInterval(messageInterval);
-            clearInterval(factInterval);
-            clearInterval(dotsInterval);
+            stepTimeouts.forEach(timeout => clearTimeout(timeout));
+            stepTimeouts = [];
+            if (dotsInterval) {
+                clearInterval(dotsInterval);
+                dotsInterval = null;
+            }
         }
 
         // Set loading state
@@ -270,6 +373,7 @@
 
             if (!loading) {
                 stopLoadingAnimations();
+                // GIF stays visible, will be paused after typing completes
             }
         }
 

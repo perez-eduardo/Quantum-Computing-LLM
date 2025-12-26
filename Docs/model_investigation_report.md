@@ -13,7 +13,8 @@
 **Parameter Tuning:** ✅ COMPLETE (temp=0.2, top_k=30)
 **Extraction Fix:** ✅ COMPLETE (find() not rfind())
 **Backend Classes:** ✅ COMPLETE (Retriever, QuantumInference, Pipeline)
-**FastAPI App:** ⬜ IN PROGRESS
+**FastAPI App:** ✅ COMPLETE (lazy loading, suggested questions)
+**Frontend:** ✅ COMPLETE (Flask + Jinja)
 
 ---
 
@@ -23,7 +24,7 @@
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| Custom | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| Custom | Custom 125.8M | ~35-37s | ✅ Implemented |
 | Production | Groq API | ~1-2s | ⬜ Add later |
 
 Custom model uses lazy loading to save cost (~$2-3/month vs $6-8/month).
@@ -70,7 +71,11 @@ class QuantumRAGPipeline:
 | Retriever class | `backend/scripts/retrieval.py` |
 | Inference class | `backend/scripts/inference.py` |
 | Pipeline class | `backend/scripts/pipeline.py` |
-| Parameter verification | `backend/scripts/verify_params.py` |
+| FastAPI config | `backend/app/config.py` |
+| FastAPI main | `backend/app/main.py` |
+| Flask app | `frontend/app.py` |
+| Jinja template | `frontend/templates/index.html` |
+| CSS styles | `frontend/static/style.css` |
 
 ---
 
@@ -226,6 +231,40 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
+## API Endpoints (FastAPI)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/health` | GET | Status, model_loaded, idle_seconds |
+| `/query` | POST | Question → answer, sources, response_time_ms, suggested_question |
+
+### Suggested Question Feature
+
+Extracts key terms from answer, scores retrieved questions by term matches, filters out questions >60% similar to original. No extra LLM call, no added latency.
+
+---
+
+## Frontend Features (Flask + Jinja)
+
+### Welcome Screen
+- Animated atom icon (CSS keyframes)
+- 5 starter questions
+- Free-tier disclaimer (40-90s warning)
+
+### Chat Interface
+- User messages (blue, right-aligned)
+- AI messages (gray, left-aligned)
+- Response time display
+- Suggested follow-up button
+
+### Loading Indicator
+- Animated atom with orbiting electrons
+- Rotating status messages (every 3s)
+- Quantum facts (every 8s)
+- Patience reminder
+
+---
+
 ## Lessons Learned
 
 1. **Two-phase training works.** Book pretraining + context fine-tuning.
@@ -250,7 +289,9 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 11. **Backend classes exist.** Retriever, QuantumInference, Pipeline ready to use.
 
+12. **Flask + Jinja is simpler than React.** Single Python file, no npm/node needed.
+
 ---
 
-*Document version: 16.0*
+*Document version: 17.0*
 *Last updated: December 26, 2025*
