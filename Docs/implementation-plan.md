@@ -15,7 +15,82 @@
 **Phase 2:** RAG System - ✅ COMPLETE (100% retrieval accuracy)
 **Phase 3:** Backend - ⬜ IN PROGRESS
 
-**Next Action:** Integrate Groq API + Demo Mode with lazy loading
+**Next Action:** Create FastAPI app wrapping existing pipeline (custom model first, Groq later)
+
+---
+
+## Project Structure
+
+```
+Quantum-Computing-LLM/
+├── Docs/
+│   ├── implementation-plan.md
+│   ├── initial-exploratory-brainstorming.md
+│   ├── model_investigation_report.md
+│   └── quantum-computing-assistant-design.md
+│
+├── training/
+│   ├── model/
+│   │   ├── final_model.pt              # 125.8M params (500MB)
+│   │   └── config.json
+│   ├── tokenizer/
+│   │   └── tokenizer.json              # 16K vocab BPE
+│   └── scripts/
+│       ├── model.py                    # QuantumLLM architecture
+│       ├── dataset.py                  # DataLoader classes
+│       ├── train.py                    # Training script
+│       └── evaluate.py                 # Evaluation script
+│
+├── backend/
+│   ├── scripts/                        # ✅ EXISTING utilities
+│   │   ├── retrieval.py                # Retriever class (Voyage + Neon)
+│   │   ├── inference.py                # QuantumInference class
+│   │   ├── pipeline.py                 # QuantumRAGPipeline class
+│   │   ├── verify_params.py            # Parameter testing
+│   │   ├── cache_contexts.py           # HPC context caching
+│   │   └── ...
+│   └── app/                            # ⬜ TO CREATE (FastAPI)
+│       ├── main.py
+│       ├── config.py
+│       └── ...
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── .env                                # API keys
+└── requirements.txt
+```
+
+---
+
+## Existing Backend Code
+
+### Retriever (`backend/scripts/retrieval.py`)
+
+```python
+class Retriever:
+    def embed_query(query: str) -> List[float]    # Voyage AI, input_type="query"
+    def search(query: str, top_k: int) -> List[Dict]  # Returns question, answer, source, similarity
+    def get_stats() -> Dict                        # Database statistics
+```
+
+### QuantumInference (`backend/scripts/inference.py`)
+
+```python
+class QuantumInference:
+    def __init__(model_path, tokenizer_path, device)  # Loads model + tokenizer
+    def generate(prompt, max_new_tokens=150, temperature=0.2, top_k=30) -> str
+    def extract_answer(generated_text) -> str      # Gets first answer after "Answer:"
+```
+
+### QuantumRAGPipeline (`backend/scripts/pipeline.py`)
+
+```python
+class QuantumRAGPipeline:
+    def __init__(model_path, tokenizer_path, device)  # Creates Retriever + QuantumInference
+    def query(question, top_k_retrieval=5, ...) -> Dict  # Returns answer, sources, suggested_questions
+```
 
 ---
 
@@ -28,12 +103,15 @@
 | Production | Groq API | ~1-2s | Fast UX |
 | Demo | Custom 125.8M | ~35-37s | Prove ML skills |
 
+**Implementation Order:** Custom model first, Groq added later.
+
 ### Pipeline
 
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Groq (default) or Custom (demo)
+                                                              Custom (default for now)
+                                                              Groq (add later)
 ```
 
 ### Custom Model Config
@@ -42,7 +120,7 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 |-----------|-------|
 | Temperature | 0.2 |
 | Top-k | 30 |
-| Loading | Lazy (load on first demo request) |
+| Loading | Lazy (load on first request) |
 | Timeout | Unload after 5 min idle |
 
 ---
@@ -121,6 +199,9 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Embed Q&A pairs | ✅ Done | 28,071 pairs |
 | Fix index issue | ✅ Done | Exact search |
 | Test retrieval | ✅ Done | **100% pass rate** |
+| Create Retriever class | ✅ Done | `backend/scripts/retrieval.py` |
+| Create QuantumInference class | ✅ Done | `backend/scripts/inference.py` |
+| Create QuantumRAGPipeline class | ✅ Done | `backend/scripts/pipeline.py` |
 
 ### Custom Model Training
 
@@ -135,17 +216,16 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 ## What Is Next
 
-### Phase 3: Backend
+### Phase 3: Backend (FastAPI)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Add GROQ_API_KEY to .env | High | ⬜ Pending |
-| Create Groq generation module | High | ⬜ Pending |
-| Create RAG retrieval module | High | ⬜ Pending |
+| Create `backend/app/config.py` | High | ⬜ Pending |
+| Create `backend/app/main.py` (FastAPI) | High | ⬜ Pending |
 | Implement lazy model loading | High | ⬜ Pending |
-| Add demo mode toggle endpoint | High | ⬜ Pending |
-| Create FastAPI endpoints | High | ⬜ Pending |
-| Test end-to-end flow | High | ⬜ Pending |
+| Test `/query` endpoint | High | ⬜ Pending |
+| Add Groq integration | Medium | ⬜ Pending (later) |
+| Add demo mode toggle | Medium | ⬜ Pending (later) |
 
 ### Phase 4: Frontend
 
@@ -182,6 +262,8 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 8. **HPC battery test:** 480 tests in 5.8 minutes on H100 (vs ~280 min on CPU).
 
+9. **RAG pipeline classes exist.** Retriever, QuantumInference, QuantumRAGPipeline ready to use.
+
 ---
 
-*Document version: 17.0*
+*Document version: 19.0*

@@ -23,24 +23,84 @@ Need a stack that is:
 
 ## Final Architecture
 
-### Two LLM Modes
+### Two LLM Modes (Implementation Order)
 
-| Mode | LLM | Speed | Purpose |
-|------|-----|-------|---------|
-| Production | Groq API | ~1-2s | Fast UX |
-| Demo | Custom 125.8M | ~35-37s | Prove ML skills to recruiters |
+| Mode | LLM | Speed | Status |
+|------|-----|-------|--------|
+| Custom | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| Production | Groq API | ~1-2s | ⬜ Add later |
 
 ### Stack
 
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
 | **Frontend + Backend** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Production)** | Groq API | $0 | Free tier sufficient |
-| **LLM (Demo)** | Custom 125.8M | $0 | Lazy loaded, ~35-37s |
+| **LLM (Custom)** | Custom 125.8M | $0 | Lazy loaded, ~35-37s |
+| **LLM (Production)** | Groq API | $0 | Free tier (add later) |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
 
 **Total: ~$5/month** (within $12 budget)
+
+---
+
+## Project Structure
+
+```
+Quantum-Computing-LLM/
+├── Docs/
+│   └── *.md
+│
+├── training/
+│   ├── model/
+│   │   ├── final_model.pt              # 125.8M params
+│   │   └── config.json
+│   ├── tokenizer/
+│   │   └── tokenizer.json              # 16K vocab BPE
+│   └── scripts/
+│       └── model.py                    # QuantumLLM architecture
+│
+├── backend/
+│   ├── scripts/                        # ✅ EXISTING
+│   │   ├── retrieval.py                # Retriever class
+│   │   ├── inference.py                # QuantumInference class
+│   │   └── pipeline.py                 # QuantumRAGPipeline class
+│   └── app/                            # ⬜ TO CREATE
+│       ├── main.py                     # FastAPI endpoints
+│       └── config.py                   # Environment variables
+│
+└── .env                                # API keys
+```
+
+---
+
+## Existing Backend Classes
+
+### Retriever (`backend/scripts/retrieval.py`)
+
+```python
+class Retriever:
+    def embed_query(query) -> List[float]   # Voyage AI
+    def search(query, top_k) -> List[Dict]  # Neon pgvector
+    def get_stats() -> Dict
+```
+
+### QuantumInference (`backend/scripts/inference.py`)
+
+```python
+class QuantumInference:
+    def __init__(model_path, tokenizer_path, device)
+    def generate(prompt, max_new_tokens=150, temperature=0.2, top_k=30) -> str
+    def extract_answer(generated_text) -> str
+```
+
+### QuantumRAGPipeline (`backend/scripts/pipeline.py`)
+
+```python
+class QuantumRAGPipeline:
+    def __init__(model_path, tokenizer_path, device)
+    def query(question) -> Dict  # Returns answer, sources, suggested_questions
+```
 
 ---
 
@@ -49,22 +109,31 @@ Need a stack that is:
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Groq (default) or Custom (demo)
+                                                              Custom model (first)
+                                                              Groq API (later)
 ```
 
 ---
 
-## Custom Model (Demo Mode)
+## Custom Model
 
 ### Why Keep It?
 
-Even though Groq handles production, the custom model demonstrates:
+Even though Groq will handle production later, the custom model demonstrates:
 - Transformer architecture design
 - Two-phase training pipeline
 - HPC cluster experience (H100 GPUs)
 - Data processing and cleaning
 
 Recruiters can toggle "Demo Mode" to see the trained model in action.
+
+### Key File Locations
+
+| Component | Path |
+|-----------|------|
+| Model weights | `training/model/final_model.pt` |
+| Tokenizer | `training/tokenizer/tokenizer.json` |
+| Model architecture | `training/scripts/model.py` |
 
 ### Configuration
 
@@ -93,7 +162,7 @@ Battery test on HPC: 24 combinations × 20 questions = 480 tests in 5.8 minutes.
 | Always loaded | ~700MB constant | ~$6-8/month |
 | **Lazy load + timeout** | ~200MB idle | **~$2-3/month** |
 
-Model loads on first demo request, unloads after 5 min idle.
+Model loads on first request, unloads after 5 min idle.
 
 Cold start adds ~5s (negligible vs 35s inference).
 
@@ -117,15 +186,7 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ## Component Details
 
-### Generation: Groq API (Production)
-
-| Setting | Value |
-|---------|-------|
-| Model | llama-3.3-70b-versatile |
-| Free tier | 30 req/min, 14,400 req/day |
-| Speed | ~1-2s per response |
-
-### Generation: Custom Model (Demo)
+### Generation: Custom Model
 
 | Setting | Value |
 |---------|-------|
@@ -133,6 +194,14 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 | Speed | ~35-37s per response |
 | temp | 0.2 |
 | top_k | 30 |
+
+### Generation: Groq API (Later)
+
+| Setting | Value |
+|---------|-------|
+| Model | llama-3.3-70b-versatile |
+| Free tier | 30 req/min, 14,400 req/day |
+| Speed | ~1-2s per response |
 
 ### Embeddings: Voyage AI
 
@@ -192,7 +261,9 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 9. **HPC speeds up testing.** 480 tests in 5.8 min vs ~280 min on CPU.
 
+10. **Build backend classes first.** Retriever, Inference, Pipeline exist and work.
+
 ---
 
-*Document version: 12.0*
+*Document version: 14.0*
 *Last updated: December 26, 2025*

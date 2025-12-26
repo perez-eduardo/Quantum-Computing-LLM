@@ -2,7 +2,7 @@
 
 ## Overview
 
-Design specification for a web-based application that answers questions about foundational quantum computing concepts. Powered by Groq API for production, with custom-trained 125.8M parameter transformer available as demo mode.
+Design specification for a web-based application that answers questions about foundational quantum computing concepts. Powered by custom-trained 125.8M parameter transformer, with Groq API as optional fast mode (to be added later).
 
 **Related Documents:**
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
@@ -31,40 +31,109 @@ This project proves ability to:
 
 | Component | Status |
 |-----------|--------|
-| Custom Model (v5) | ✅ COMPLETE (125.8M params, 60% accuracy) |
+| Custom Model (v5) | ✅ COMPLETE (125.8M params, 100% pass rate) |
 | RAG System | ✅ COMPLETE (100% retrieval) |
-| Parameter Tuning | ✅ COMPLETE (temp=0.3, top_k=20) |
-| Backend | ⬜ IN PROGRESS |
+| Parameter Tuning | ✅ COMPLETE (temp=0.2, top_k=30) |
+| Backend Classes | ✅ COMPLETE (Retriever, QuantumInference, Pipeline) |
+| FastAPI App | ⬜ IN PROGRESS |
 | Frontend | ⬜ Pending |
 | Deployment | ⬜ Pending |
 
-**Next Action:** Integrate Groq API + Demo Mode
+**Next Action:** Create FastAPI app (custom model first, Groq later)
+
+---
+
+## Project Structure
+
+```
+Quantum-Computing-LLM/
+├── Docs/
+│   └── *.md
+│
+├── training/
+│   ├── model/
+│   │   ├── final_model.pt              # 125.8M params
+│   │   └── config.json
+│   ├── tokenizer/
+│   │   └── tokenizer.json              # 16K vocab BPE
+│   └── scripts/
+│       └── model.py                    # QuantumLLM architecture
+│
+├── backend/
+│   ├── scripts/                        # ✅ EXISTING
+│   │   ├── retrieval.py                # Retriever class
+│   │   ├── inference.py                # QuantumInference class
+│   │   └── pipeline.py                 # QuantumRAGPipeline class
+│   └── app/                            # ⬜ TO CREATE
+│       ├── main.py                     # FastAPI endpoints
+│       └── config.py                   # Environment variables
+│
+└── .env                                # API keys
+```
+
+---
+
+## Existing Backend Classes
+
+### Retriever (`backend/scripts/retrieval.py`)
+
+Handles semantic search using Voyage AI + Neon pgvector.
+
+```python
+class Retriever:
+    def embed_query(query: str) -> List[float]
+    def search(query: str, top_k: int = 5) -> List[Dict]
+    def get_stats() -> Dict
+```
+
+### QuantumInference (`backend/scripts/inference.py`)
+
+Handles model loading and text generation.
+
+```python
+class QuantumInference:
+    def __init__(model_path, tokenizer_path, device)
+    def generate(prompt, max_new_tokens=150, temperature=0.2, top_k=30) -> str
+    def extract_answer(generated_text) -> str
+```
+
+### QuantumRAGPipeline (`backend/scripts/pipeline.py`)
+
+Combines retrieval and inference into a single query interface.
+
+```python
+class QuantumRAGPipeline:
+    def __init__(model_path, tokenizer_path, device)
+    def query(question, top_k_retrieval=5, ...) -> Dict
+        # Returns: answer, sources, suggested_questions
+```
 
 ---
 
 ## Architecture
 
-### Two LLM Modes
+### Two LLM Modes (Implementation Order)
 
-| Mode | LLM | Speed | Purpose |
-|------|-----|-------|---------|
-| **Production** | Groq API | ~1-2s | Fast UX (default) |
-| **Demo** | Custom 125.8M | ~40-45s | Prove ML skills |
+| Mode | LLM | Speed | Status |
+|------|-----|-------|--------|
+| **Custom** | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| **Production** | Groq API | ~1-2s | ⬜ Add later |
 
 ### Pipeline
 
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Groq (default) or Custom (demo)
+                                                              Custom model (first)
+                                                              Groq API (later)
 ```
 
 ### Stack
 
 | Component | Provider | Speed | Cost |
 |-----------|----------|-------|------|
-| **Generation (Production)** | Groq API | ~1-2s | $0 (free tier) |
-| **Generation (Demo)** | Custom 125.8M | ~40-45s | $0 (lazy loaded) |
+| **Generation (Custom)** | Custom 125.8M | ~35-37s | $0 (lazy loaded) |
+| **Generation (Groq)** | Groq API | ~1-2s | $0 (free tier) |
 | **Embeddings** | Voyage AI | ~100ms | $0 (free tier) |
 | **Database** | Neon (pgvector) | ~300ms | $0 (free tier) |
 | **Hosting** | Railway | Always on | $5/month |
@@ -91,7 +160,7 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 
 ---
 
-## Custom Model (Demo Mode)
+## Custom Model
 
 ### Architecture
 
@@ -106,22 +175,31 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 | Vocabulary | 16,384 (custom BPE) |
 | Context length | 1024 tokens |
 
+### Key File Locations
+
+| Component | Path |
+|-----------|------|
+| Model weights | `training/model/final_model.pt` |
+| Tokenizer | `training/tokenizer/tokenizer.json` |
+| Model architecture | `training/scripts/model.py` |
+
 ### Generation Config
 
 | Parameter | Value |
 |-----------|-------|
-| Temperature | 0.3 |
-| Top-k | 20 |
-| Accuracy | 60% |
+| Temperature | 0.2 |
+| Top-k | 30 |
+| Pass Rate | 100% |
+| Keyword Score | 76-80% |
 
 ### Lazy Loading
 
 | Setting | Value |
 |---------|-------|
-| Load trigger | First demo request |
+| Load trigger | First request |
 | Unload trigger | 5 min idle |
 | Cold start | ~5s |
-| Inference | ~40-45s |
+| Inference | ~35-37s |
 | Cost savings | ~$4-5/month |
 
 ---
@@ -170,8 +248,7 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 POST /query:
 ```json
 {
-  "question": "What is quantum entanglement?",
-  "demo_mode": false
+  "question": "What is quantum entanglement?"
 }
 ```
 
@@ -179,8 +256,7 @@ Response:
 ```json
 {
   "answer": "Quantum entanglement is a phenomenon where...",
-  "mode": "groq",
-  "response_time_ms": 1500,
+  "response_time_ms": 36000,
   "sources": [
     {
       "source": "claude",
@@ -201,13 +277,13 @@ Single HTML page with minimal design.
 | Header | Title, brief description |
 | Input area | Text input for questions |
 | Response area | Answer with sources |
-| **Demo toggle** | Switch between Groq and custom model |
+| **Demo toggle** | Switch between Groq and custom model (later) |
 | Footer | Disclaimer, portfolio link |
 
-### Demo Mode UI
+### Demo Mode UI (Later)
 
 When demo mode is enabled:
-- Show warning: "Demo mode uses custom model (~45s response time)"
+- Show warning: "Demo mode uses custom model (~35s response time)"
 - Show loading indicator during inference
 - Display model info: "125.8M parameter transformer trained from scratch"
 
@@ -228,10 +304,9 @@ When demo mode is enabled:
 
 | Variable | Purpose |
 |----------|---------|
-| GROQ_API_KEY | Groq generation |
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
-| MODEL_PATH | Path to custom model weights |
+| GROQ_API_KEY | Groq generation (later) |
 
 ---
 
@@ -267,14 +342,15 @@ When demo mode is enabled:
 
 1. ~~Train custom model~~ ✅ Done (125.8M params)
 2. ~~Set up RAG system~~ ✅ Done (100% accuracy)
-3. ~~Tune generation params~~ ✅ Done (temp=0.3, top_k=20)
-4. **Integrate Groq API** ⬜ Pending
-5. **Implement lazy loading** ⬜ Pending
-6. **Create FastAPI endpoints** ⬜ Pending
-7. **Build frontend with demo toggle** ⬜ Pending
+3. ~~Tune generation params~~ ✅ Done (temp=0.2, top_k=30)
+4. ~~Create backend classes~~ ✅ Done (Retriever, Inference, Pipeline)
+5. **Create FastAPI app** ⬜ Pending
+6. **Add lazy loading** ⬜ Pending
+7. **Build frontend** ⬜ Pending
 8. **Deploy to Railway** ⬜ Pending
+9. **Add Groq integration** ⬜ Pending (later)
 
 ---
 
-*Document version: 14.0*
-*Last updated: December 25, 2025*
+*Document version: 17.0*
+*Last updated: December 26, 2025*

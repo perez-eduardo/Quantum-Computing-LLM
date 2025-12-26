@@ -12,20 +12,65 @@
 **RAG:** ✅ COMPLETE (100% retrieval accuracy)
 **Parameter Tuning:** ✅ COMPLETE (temp=0.2, top_k=30)
 **Extraction Fix:** ✅ COMPLETE (find() not rfind())
-**Production Decision:** Groq API + Custom model as demo mode
+**Backend Classes:** ✅ COMPLETE (Retriever, QuantumInference, Pipeline)
+**FastAPI App:** ⬜ IN PROGRESS
 
 ---
 
 ## Architecture (December 26, 2025)
 
-### Two LLM Modes
+### Two LLM Modes (Implementation Order)
 
-| Mode | LLM | Speed | Purpose |
-|------|-----|-------|---------|
-| Production | Groq API | ~1-2s | Fast UX |
-| Demo | Custom 125.8M | ~35-37s | Prove ML skills |
+| Mode | LLM | Speed | Status |
+|------|-----|-------|--------|
+| Custom | Custom 125.8M | ~35-37s | ⬜ Implement first |
+| Production | Groq API | ~1-2s | ⬜ Add later |
 
 Custom model uses lazy loading to save cost (~$2-3/month vs $6-8/month).
+
+---
+
+## Existing Backend Classes
+
+### Retriever (`backend/scripts/retrieval.py`)
+
+```python
+class Retriever:
+    def embed_query(query) -> List[float]   # Voyage AI, input_type="query"
+    def search(query, top_k) -> List[Dict]  # Returns question, answer, source, similarity
+    def get_stats() -> Dict                  # Database statistics
+```
+
+### QuantumInference (`backend/scripts/inference.py`)
+
+```python
+class QuantumInference:
+    def __init__(model_path, tokenizer_path, device)
+    def generate(prompt, max_new_tokens=150, temperature=0.2, top_k=30) -> str
+    def extract_answer(generated_text) -> str  # Gets first answer after "Answer:"
+```
+
+### QuantumRAGPipeline (`backend/scripts/pipeline.py`)
+
+```python
+class QuantumRAGPipeline:
+    def __init__(model_path, tokenizer_path, device)
+    def query(question) -> Dict  # Returns answer, sources, suggested_questions
+```
+
+---
+
+## Key File Locations
+
+| Component | Path |
+|-----------|------|
+| Model weights | `training/model/final_model.pt` |
+| Tokenizer | `training/tokenizer/tokenizer.json` |
+| Model architecture | `training/scripts/model.py` |
+| Retriever class | `backend/scripts/retrieval.py` |
+| Inference class | `backend/scripts/inference.py` |
+| Pipeline class | `backend/scripts/pipeline.py` |
+| Parameter verification | `backend/scripts/verify_params.py` |
 
 ---
 
@@ -163,14 +208,7 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ## Inference Configuration
 
-### Production (Groq)
-
-| Setting | Value |
-|---------|-------|
-| Model | llama-3.3-70b-versatile |
-| Speed | ~1-2s |
-
-### Demo (Custom)
+### Custom Model
 
 | Setting | Value |
 |---------|-------|
@@ -178,6 +216,13 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 | Top-k | 30 |
 | Speed | ~35-37s |
 | Loading | Lazy (5 min timeout) |
+
+### Groq API (Later)
+
+| Setting | Value |
+|---------|-------|
+| Model | llama-3.3-70b-versatile |
+| Speed | ~1-2s |
 
 ---
 
@@ -203,7 +248,9 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 10. **HPC accelerates testing.** 480 tests in 5.8 min vs ~280 min on CPU.
 
+11. **Backend classes exist.** Retriever, QuantumInference, Pipeline ready to use.
+
 ---
 
-*Document version: 14.0*
+*Document version: 16.0*
 *Last updated: December 26, 2025*
