@@ -10,8 +10,9 @@ psycopg2-binary==2.9.9
 # Embeddings
 voyageai==0.2.1
 
-# Model inference
-torch==2.1.2
+# Model inference - CPU only (much smaller)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
 tokenizers==0.15.0
 
 # Utilities
