@@ -1,20 +1,7 @@
-# Backend dependencies for Quantum Computing LLM API
-
-# Web framework
 fastapi==0.109.0
 uvicorn==0.27.0
-
-# Database
 psycopg2-binary==2.9.9
-
-# Embeddings
 voyageai==0.2.1
-
-# Model inference - CPU only (much smaller)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.1.2+cpu
 tokenizers==0.15.0
-
-# Utilities
 python-dotenv==1.0.0
 pydantic==2.5.3
