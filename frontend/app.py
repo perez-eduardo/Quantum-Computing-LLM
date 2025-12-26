@@ -2,18 +2,22 @@
 Flask frontend for Quantum Computing LLM.
 Serves the chat UI and proxies API requests to the backend.
 
-Run:
+Local:
     cd frontend
     python app.py
+
+Railway:
+    Set BACKEND_URL environment variable to backend service URL
 """
 
+import os
 from flask import Flask, render_template, request, jsonify
 import requests
 
 app = Flask(__name__)
 
-# Backend API URL
-BACKEND_URL = "http://localhost:8000"
+# Backend API URL (env var for Railway, localhost for local dev)
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 @app.route("/")
@@ -42,7 +46,7 @@ def query():
 
 
 @app.route("/api/health", methods=["GET"])
-def health():
+def api_health():
     """Proxy health check to the backend API."""
     try:
         response = requests.get(f"{BACKEND_URL}/health", timeout=5)
@@ -51,5 +55,12 @@ def health():
         return jsonify({"error": str(e), "backend": "unavailable"}), 503
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    """Frontend health check for Railway."""
+    return jsonify({"status": "ok", "service": "frontend"}), 200
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000, debug=True)
+    port = int(os.getenv("PORT", 3000))
+    app.run(host="0.0.0.0", port=port, debug=True)
