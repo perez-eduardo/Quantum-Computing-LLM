@@ -1,6 +1,6 @@
 # Quantum Computing Assistant - Implementation Plan
 
-**Last Updated:** December 24, 2025
+**Last Updated:** December 26, 2025
 
 **Related Documents:**
 - Design Document: `quantum-computing-assistant-design.md`
@@ -11,50 +11,84 @@
 
 ## Current Status
 
-**Phase 1:** Training Pipeline - ✅ COMPLETE (v5 trained)
-**Phase 2:** RAG System - ✅ COMPLETE
+**Phase 1:** Training Pipeline - ✅ COMPLETE (v5 trained, 100% pass rate)
+**Phase 2:** RAG System - ✅ COMPLETE (100% retrieval accuracy)
 **Phase 3:** Backend - ⬜ IN PROGRESS
 
-**Next Action:** Connect RAG to model for end-to-end testing
+**Next Action:** Integrate Groq API + Demo Mode with lazy loading
 
 ---
 
-## Model v5 Training Complete (December 24, 2025)
+## Architecture (December 26, 2025)
 
-### Two-Phase Training Results
+### Two LLM Modes
 
-**Phase 1: Book Pretraining**
-| Metric | Value |
-|--------|-------|
-| Data | combined_books_cleaned.txt (620K words) |
-| Epochs | 17 |
-| Final Perplexity | 2.20 |
-| Time | ~13 min on H100 |
+| Mode | LLM | Speed | Purpose |
+|------|-----|-------|---------|
+| Production | Groq API | ~1-2s | Fast UX |
+| Demo | Custom 125.8M | ~35-37s | Prove ML skills |
 
-**Phase 2: Context Q&A Fine-tuning**
-| Metric | Value |
-|--------|-------|
-| Data | 28,071 context-format Q&A pairs |
-| Epochs | 10 |
-| Time | ~116 min on H100 |
+### Pipeline
 
-### Evaluation Results
+```
+User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
+                                                                         ↓
+                                                              Groq (default) or Custom (demo)
+```
 
-| Test Type | Score |
+### Custom Model Config
+
+| Parameter | Value |
 |-----------|-------|
-| With context (RAG simulation) | **64% keyword accuracy** |
-| Without context | Gibberish (expected) |
+| Temperature | 0.2 |
+| Top-k | 30 |
+| Loading | Lazy (load on first demo request) |
+| Timeout | Unload after 5 min idle |
 
-**Verdict:** ✅ Model successfully learned to use context
+---
 
-### Sample Outputs (With Context)
+## Parameter Tuning (December 26, 2025)
 
-| Question | Keywords Found | Score |
-|----------|----------------|-------|
-| What is a qubit? | qubit, quantum, bit, superposition | 80% |
-| Why is quantum computing important for cryptography? | cryptography, encryption, security | 60% |
-| What is a quantum circuit? | circuit, gate, qubit, quantum | 80% |
-| Why is quantum error correction needed? | error, correct, fault | 60% |
+### Battery Test on HPC
+
+Tested 24 parameter combinations (4 temps × 6 top_k) across 20 questions = 480 tests.
+
+**Top Results:**
+
+| Parameters | Pass Rate | Keyword Score |
+|------------|-----------|---------------|
+| **temp=0.2, top_k=30** | **100%** | **80.5%** |
+| temp=0.4, top_k=20 | 100% | 78.8% |
+| temp=0.1, top_k=40 | 100% | 78.5% |
+| temp=0.3, top_k=50 (old baseline) | 100% | 74.2% |
+
+### Live Deployment Verification
+
+Full RAG pipeline test (Voyage API + Neon DB + Custom Model):
+
+| Parameters | Pass Rate | Keyword Score | Avg Time |
+|------------|-----------|---------------|----------|
+| **temp=0.2, top_k=30** | **100%** | 76.2% | 36.6s |
+| temp=0.4, top_k=20 | 95% | 76.5% | 39.0s |
+
+**Winner:** temp=0.2, top_k=30
+
+---
+
+## RAG System Fixed (December 25, 2025)
+
+### Index Issue
+IVFFlat approximate index was missing exact matches.
+
+### Fix
+Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
+
+### Results
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Retrieval accuracy | 90% | **100%** |
+| Search time | ~50ms | ~300ms |
 
 ---
 
@@ -67,82 +101,49 @@
 | Download Stack Exchange QC dump | ✅ Done | 28K total posts |
 | Obtain book PDFs | ✅ Done | 5 books |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs across 38 batches |
-| Obtain CoT Reasoning Dataset | ✅ Done | 2,998 Q&A pairs with chain-of-thought |
-| Clean books | ✅ Done | 620K words (removed copyright, TOC, spam) |
+| Obtain CoT Reasoning Dataset | ✅ Done | 2,998 Q&A pairs |
+| Clean books | ✅ Done | 620K words |
 
-### Data Processing & Cleaning
+### Data Processing
 
 | Task | Status | Output |
 |------|--------|--------|
 | Process Stack Exchange XML | ✅ Done | 10,673 pairs |
-| Extract and clean book texts | ✅ Done | 620,455 words |
 | Generate Claude Q&A | ✅ Done | 15,000 pairs |
 | Process CoT dataset | ✅ Done | 2,998 pairs |
-| Train custom BPE tokenizer | ✅ Done | 16K vocab |
-| Add context to CoT dataset | ✅ Done | Reasoning from metadata |
-| Add context to Stack Exchange | ✅ Done | Tags + body as context |
-| Add context to Claude Q&A | ✅ Done | Topic-matched relevant Q&A pairs |
-
-### Context-Format Data
-
-| Source | Rows | Context Type |
-|--------|------|--------------|
-| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
-| stackexchange_qa_context.csv | 10,673 | Tags + question body |
-| claude_qa_context.csv | 14,400 | Topic-matched relevant Q&A pairs |
-| **Total** | **28,071** | |
-
-### HPC Training
-
-| Task | Status | Notes |
-|------|--------|-------|
-| Set up HPC environment | ✅ Done | Python 3.11 venv, PyTorch 2.5.1+cu121 |
-| Implement transformer architecture | ✅ Done | 125.8M params |
-| Train tokenizer | ✅ Done | 16K vocab BPE |
-| Phase 1: Book pretraining | ✅ Done | 17 epochs, perplexity 2.20 |
-| Phase 2: Context Q&A fine-tuning | ✅ Done | 10 epochs |
-| Evaluate model | ✅ Done | 64% keyword accuracy with context |
-| Download model files | ⬜ Pending | |
+| Add context to all datasets | ✅ Done | Topic-matched Q&A pairs |
 
 ### RAG System
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Set up Neon database with pgvector | ✅ Done | Free tier, 512MB limit |
-| Embed Q&A pairs | ✅ Done | 26,764 pairs embedded |
-| Test retrieval | ✅ Done | 94% pass rate |
+| Set up Neon database with pgvector | ✅ Done | Free tier |
+| Embed Q&A pairs | ✅ Done | 28,071 pairs |
+| Fix index issue | ✅ Done | Exact search |
+| Test retrieval | ✅ Done | **100% pass rate** |
 
----
+### Custom Model Training
 
-## Training Results Comparison
-
-| Metric | v1 | v3 | v4 | v5 |
-|--------|----|----|----|----|
-| Parameters | 1.2M | 1.2M | 1.2M | **125.8M** |
-| Training data | 96K garbage | 24K plain | 26K plain | 28K context |
-| Format | Plain Q&A | Plain Q&A | Plain Q&A | **Context-aware** |
-| Perplexity | 15.55 | 89.63 | 91.80 | **2.20 (Phase 1)** |
-| Keyword Accuracy | 14.8% | 16.4% | 11.4% | **64%** |
-| Can use RAG context | ❌ | ❌ | ❌ | **✅** |
+| Task | Status | Notes |
+|------|--------|-------|
+| Train 125.8M transformer | ✅ Done | Two-phase training |
+| Tune generation params | ✅ Done | temp=0.2, top_k=30 |
+| Achieve 100% pass rate | ✅ Done | Best config |
+| Fix extraction function | ✅ Done | First answer, not last |
 
 ---
 
 ## What Is Next
 
-### Immediate: End-to-End Integration
-
-| Task | Priority | Status |
-|------|----------|--------|
-| Download model from HPC | High | ⬜ Pending |
-| Create inference pipeline | High | ⬜ Pending |
-| Connect RAG retrieval to model | High | ⬜ Pending |
-| Test end-to-end flow | High | ⬜ Pending |
-
 ### Phase 3: Backend
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Implement RAG + model pipeline | High | ⬜ Pending |
+| Add GROQ_API_KEY to .env | High | ⬜ Pending |
+| Create Groq generation module | High | ⬜ Pending |
+| Create RAG retrieval module | High | ⬜ Pending |
+| Implement lazy model loading | High | ⬜ Pending |
+| Add demo mode toggle endpoint | High | ⬜ Pending |
 | Create FastAPI endpoints | High | ⬜ Pending |
 | Test end-to-end flow | High | ⬜ Pending |
 
@@ -152,6 +153,7 @@
 |------|----------|--------|
 | Single HTML page | Medium | ⬜ Pending |
 | API integration | Medium | ⬜ Pending |
+| Demo mode toggle UI | Medium | ⬜ Pending |
 
 ### Phase 5: Deployment
 
@@ -162,102 +164,24 @@
 
 ---
 
-## Development Phases
-
-### Phase 1: Training Pipeline ✅ COMPLETE
-
-| Task | Status |
-|------|--------|
-| Generate Claude Q&A (15,000 pairs) | ✅ Done |
-| Process Stack Exchange | ✅ Done |
-| Process CoT dataset (2,998 pairs) | ✅ Done |
-| Add context to all datasets | ✅ Done |
-| Clean books (620K words) | ✅ Done |
-| Train tokenizer | ✅ Done |
-| Phase 1: Book pretraining (17 epochs) | ✅ Done |
-| Phase 2: Context Q&A fine-tuning (10 epochs) | ✅ Done |
-| Evaluate model (64% accuracy) | ✅ Done |
-
-### Phase 2: RAG System ✅ COMPLETE
-
-| Task | Status |
-|------|--------|
-| Set up Neon database with pgvector | ✅ Done |
-| Embed Q&A pairs (26,764) | ✅ Done |
-| Test retrieval quality | ✅ Done |
-| Achieve 94% pass rate | ✅ Done |
-
-### Phase 3: Backend ⬜ IN PROGRESS
-
-| Task | Status |
-|------|--------|
-| Download model from HPC | ⬜ Pending |
-| FastAPI endpoints | ⬜ Pending |
-| Model inference | ⬜ Pending |
-| RAG integration | ⬜ Pending |
-| End-to-end testing | ⬜ Pending |
-
----
-
-## Output Files
-
-### Model Files (HPC)
-
-| File | Location | Description |
-|------|----------|-------------|
-| `phase1_best.pt` | `~/hpc-share/quantum-llm/model/` | Book pretrained |
-| `phase2_best.pt` | `~/hpc-share/quantum-llm/model/` | Context fine-tuned |
-| `final_model.pt` | `~/hpc-share/quantum-llm/model/` | **Production model** |
-| `tokenizer.json` | `~/hpc-share/quantum-llm/` | BPE tokenizer |
-
-### Training Scripts (HPC)
-
-| File | Purpose |
-|------|---------|
-| `scripts/model.py` | 125.8M param transformer architecture |
-| `scripts/dataset.py` | Book + Context Q&A data loading |
-| `scripts/train.py` | Two-phase training logic |
-| `scripts/train_phase1.sh` | SLURM job for book pretraining |
-| `scripts/train_phase2.sh` | SLURM job for context fine-tuning |
-| `scripts/evaluate.py` | Model evaluation |
-| `scripts/train_tokenizer.py` | BPE tokenizer training |
-
-### Context-Format Training Data
-
-| File | Rows | Description |
-|------|------|-------------|
-| `cot_qa_context.csv` | 2,998 | question, answer, context (reasoning) |
-| `stackexchange_qa_context.csv` | 10,673 | question, answer, context (tags + body) |
-| `claude_qa_context.csv` | 14,400 | question, answer, context (topic-matched) |
-
-### Database (Neon)
-
-| Table | Contents |
-|-------|----------|
-| chunks | 26,764 Q&A embeddings |
-
----
-
-## Key Findings During Implementation
+## Key Findings
 
 1. **ChatGPT synthetic data was 94% garbage.** Abandoned entirely.
 
-2. **Claude Q&A generation works.** 15,000 pairs with proper verification.
+2. **Claude Q&A generation works.** 15,000 pairs verified.
 
-3. **Small models cannot reason.** 1.2M params produces gibberish. 125.8M produces coherent text.
+3. **IVFFlat index caused retrieval failures.** Exact search fixed it.
 
-4. **Two-phase training works.** Book pretraining (perplexity 2.20) + context fine-tuning = usable model.
+4. **Custom model best params:** temp=0.2, top_k=30 (100% pass rate, 76-80% keyword score).
 
-5. **Context format is critical.** Model must be trained on same format used at inference.
+5. **Extraction function bug:** Was using rfind() (last answer), fixed to find() (first answer).
 
-6. **Topic-matched context beats random.** Context must be relevant to the question.
+6. **Lazy loading saves cost.** ~$2-3/month vs $6-8/month always loaded.
 
-7. **64% keyword accuracy with context.** Major improvement from v4's 11.4%.
+7. **Custom model inference:** ~35-37s per question on CPU.
 
-8. **Model needs context to function.** Without context, outputs are gibberish. RAG is essential.
-
-9. **Q&A pairs beat book chunks for RAG.** 94% retrieval accuracy.
+8. **HPC battery test:** 480 tests in 5.8 minutes on H100 (vs ~280 min on CPU).
 
 ---
 
-*Document version: 13.0*
+*Document version: 17.0*

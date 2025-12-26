@@ -2,7 +2,7 @@
 
 ## Overview
 
-Design specification for a web-based application that answers questions about foundational quantum computing concepts, powered by a custom-trained 125.8M parameter transformer combined with RAG retrieval.
+Design specification for a web-based application that answers questions about foundational quantum computing concepts. Powered by Groq API for production, with custom-trained 125.8M parameter transformer available as demo mode.
 
 **Related Documents:**
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
@@ -31,65 +31,45 @@ This project proves ability to:
 
 | Component | Status |
 |-----------|--------|
-| Custom Model (v5) | ✅ COMPLETE (125.8M params, 64% accuracy) |
-| Context-Format Data | ✅ COMPLETE (28,071 rows) |
-| RAG System | ✅ COMPLETE (94% retrieval) |
+| Custom Model (v5) | ✅ COMPLETE (125.8M params, 60% accuracy) |
+| RAG System | ✅ COMPLETE (100% retrieval) |
+| Parameter Tuning | ✅ COMPLETE (temp=0.3, top_k=20) |
 | Backend | ⬜ IN PROGRESS |
 | Frontend | ⬜ Pending |
 | Deployment | ⬜ Pending |
 
-**Next Action:** Connect RAG to model for end-to-end testing
+**Next Action:** Integrate Groq API + Demo Mode
 
 ---
 
-## Model v5 Architecture ✅ COMPLETE
+## Architecture
 
-### Parameters
+### Two LLM Modes
 
-| Parameter | Value |
-|-----------|-------|
-| Type | Decoder-only transformer |
-| Total parameters | **125,848,320 (125.8M)** |
-| Layers | 12 |
-| Attention heads | 12 |
-| Embedding dimension | 768 |
-| Feed-forward dimension | 3072 |
-| Vocabulary size | 16,384 (custom BPE) |
-| Context length | 1024 tokens |
-| Dropout | 0.1 |
+| Mode | LLM | Speed | Purpose |
+|------|-----|-------|---------|
+| **Production** | Groq API | ~1-2s | Fast UX (default) |
+| **Demo** | Custom 125.8M | ~40-45s | Prove ML skills |
 
-### Features
-- RMSNorm (instead of LayerNorm)
-- Rotary Position Embeddings (RoPE)
-- SwiGLU activation
-- Weight tying (embedding and output)
+### Pipeline
 
-### Two-Phase Training
+```
+User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
+                                                                         ↓
+                                                              Groq (default) or Custom (demo)
+```
 
-**Phase 1: Book Pretraining**
-| Metric | Value |
-|--------|-------|
-| Data | 620K words from cleaned textbooks |
-| Tokens | 970,811 |
-| Epochs | 17 |
-| Final perplexity | **2.20** |
-| Time | ~13 min on H100 |
+### Stack
 
-**Phase 2: Context Q&A Fine-tuning**
-| Metric | Value |
-|--------|-------|
-| Data | 28,071 context-format Q&A pairs |
-| Epochs | 10 |
-| Time | ~116 min on H100 |
+| Component | Provider | Speed | Cost |
+|-----------|----------|-------|------|
+| **Generation (Production)** | Groq API | ~1-2s | $0 (free tier) |
+| **Generation (Demo)** | Custom 125.8M | ~40-45s | $0 (lazy loaded) |
+| **Embeddings** | Voyage AI | ~100ms | $0 (free tier) |
+| **Database** | Neon (pgvector) | ~300ms | $0 (free tier) |
+| **Hosting** | Railway | Always on | $5/month |
 
-### Evaluation Results
-
-| Test Type | Result |
-|-----------|--------|
-| With context | **64% keyword accuracy** |
-| Without context | Gibberish (expected) |
-
-**Model requires RAG context to function.** This is by design.
+**Total: ~$5/month**
 
 ---
 
@@ -111,56 +91,51 @@ This project proves ability to:
 
 ---
 
-## Tech Stack
+## Custom Model (Demo Mode)
 
-| Layer | Choice | Notes |
-|-------|--------|-------|
-| Frontend | Single HTML page | Minimal, self-contained |
-| Backend | Python + FastAPI | RAG pipeline, model inference |
-| Database | Neon PostgreSQL + pgvector | Free tier, 26,764 Q&A embeddings |
-| Custom LLM | Trained transformer | **125.8M params, context-aware** |
-| Training Data | Context-format Q&A | 28,071 pairs |
-| Embeddings | Voyage AI | voyage-3.5-lite, 200M free tokens |
-| Training Compute | Oregon State HPC | H100 GPUs, SLURM scheduler |
-| Hosting | Railway (Hobby) | $5/month, always on |
+### Architecture
 
----
+| Parameter | Value |
+|-----------|-------|
+| Type | Decoder-only transformer |
+| Parameters | **125,848,320 (125.8M)** |
+| Layers | 12 |
+| Attention heads | 12 |
+| Embedding dimension | 768 |
+| Feed-forward dimension | 3072 |
+| Vocabulary | 16,384 (custom BPE) |
+| Context length | 1024 tokens |
 
-## Training Data
+### Generation Config
 
-### Context-Format Q&A (Phase 2)
+| Parameter | Value |
+|-----------|-------|
+| Temperature | 0.3 |
+| Top-k | 20 |
+| Accuracy | 60% |
 
-| Source | Rows | Context Type |
-|--------|------|--------------|
-| claude_qa_context.csv | 14,400 | Topic-matched relevant Q&A pairs |
-| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
-| stackexchange_qa_context.csv | 10,673 | Tags + question body |
-| **Total** | **28,071** | |
+### Lazy Loading
 
-### Books (Phase 1)
-
-| Source | Words |
-|--------|-------|
-| combined_books_cleaned.txt | 620,455 |
-
-5 textbooks cleaned of copyright notices, TOC, spam.
+| Setting | Value |
+|---------|-------|
+| Load trigger | First demo request |
+| Unload trigger | 5 min idle |
+| Cold start | ~5s |
+| Inference | ~40-45s |
+| Cost savings | ~$4-5/month |
 
 ---
 
 ## RAG System ✅ COMPLETE
 
-### Purpose
-
-The model requires context to generate coherent answers. RAG retrieves relevant Q&A pairs at query time.
-
 ### Database Contents
 
 | Source | Count |
 |--------|-------|
-| claude_synthetic | 15,000 |
-| stackexchange | 9,008 |
-| cot_reasoning | 2,756 |
-| **Total** | **26,764** |
+| claude | 14,400 |
+| stackexchange | 10,673 |
+| cot | 2,998 |
+| **Total** | **28,071** |
 
 ### Embedding Configuration
 
@@ -175,37 +150,9 @@ The model requires context to generate coherent answers. RAG retrieves relevant 
 
 | Metric | Value |
 |--------|-------|
-| Test questions | 100 |
-| Pass rate | **94%** |
-
----
-
-## Inference Pipeline
-
-```
-1. User sends question
-              │
-              ▼
-2. Generate query embedding (Voyage AI, input_type="query")
-              │
-              ▼
-3. Retrieve top-k relevant Q&A pairs (pgvector)
-              │
-              ▼
-4. Build context-aware prompt:
-   
-   Context: Q: [retrieved pair 1] A: [answer 1]
-   Q: [retrieved pair 2] A: [answer 2]
-   
-   Question: [user question]
-   Answer:
-              │
-              ▼
-5. Run inference: Custom transformer (125.8M params)
-              │
-              ▼
-6. Return response to user
-```
+| Accuracy | **100%** |
+| Search time | ~300ms |
+| Index type | Exact search |
 
 ---
 
@@ -223,7 +170,8 @@ The model requires context to generate coherent answers. RAG retrieves relevant 
 POST /query:
 ```json
 {
-  "question": "What is quantum entanglement?"
+  "question": "What is quantum entanglement?",
+  "demo_mode": false
 }
 ```
 
@@ -231,9 +179,11 @@ Response:
 ```json
 {
   "answer": "Quantum entanglement is a phenomenon where...",
+  "mode": "groq",
+  "response_time_ms": 1500,
   "sources": [
     {
-      "source": "claude_synthetic",
+      "source": "claude",
       "relevance": 0.89
     }
   ]
@@ -250,20 +200,16 @@ Single HTML page with minimal design.
 |---------|-------------|
 | Header | Title, brief description |
 | Input area | Text input for questions |
-| Response area | Model's answer with sources |
+| Response area | Answer with sources |
+| **Demo toggle** | Switch between Groq and custom model |
 | Footer | Disclaimer, portfolio link |
 
----
+### Demo Mode UI
 
-## Model Files (HPC)
-
-| File | Location | Description |
-|------|----------|-------------|
-| `final_model.pt` | `model/` | **Production model** (~500MB) |
-| `phase1_best.pt` | `model/` | Book pretraining checkpoint |
-| `phase2_best.pt` | `model/` | Context fine-tuning checkpoint |
-| `config.json` | `model/` | Model configuration |
-| `tokenizer.json` | root | BPE tokenizer (16K vocab) |
+When demo mode is enabled:
+- Show warning: "Demo mode uses custom model (~45s response time)"
+- Show loading indicator during inference
+- Display model info: "125.8M parameter transformer trained from scratch"
 
 ---
 
@@ -274,16 +220,18 @@ Single HTML page with minimal design.
 | Setting | Value |
 |---------|-------|
 | Plan | Hobby ($5/month) |
-| Structure | Monorepo (backend serves frontend) |
+| RAM limit | 8GB |
+| Structure | Monorepo |
 | Always on | Yes |
-| Model size | ~500MB (125.8M params) |
 
 ### Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
+| GROQ_API_KEY | Groq generation |
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
+| MODEL_PATH | Path to custom model weights |
 
 ---
 
@@ -292,10 +240,13 @@ Single HTML page with minimal design.
 | Component | Monthly Cost |
 |-----------|--------------|
 | Railway (hosting) | $5 |
-| Voyage AI (embeddings) | $0 (free tier) |
-| Neon (database) | $0 (free tier) |
-| HPC (training) | $0 (one-time) |
-| **Total** | **$5/month** |
+| Groq API | $0 (free tier) |
+| Voyage AI | $0 (free tier) |
+| Neon | $0 (free tier) |
+| **Total** | **~$5/month** |
+
+**Budget:** $12/month
+**Actual:** ~$5/month
 
 ---
 
@@ -304,6 +255,7 @@ Single HTML page with minimal design.
 | Provider | Hard Cap | Action |
 |----------|----------|--------|
 | Railway | $10 | Settings > Usage > Hard limit |
+| Groq | Free tier | No billing needed |
 | Voyage AI | $5 prepaid | Auto-recharge OFF |
 | Neon | N/A | Auto-stops at 100 compute hours |
 
@@ -311,29 +263,18 @@ Single HTML page with minimal design.
 
 ---
 
-## Out of Scope (MVP)
-
-| Feature | Reason |
-|---------|--------|
-| Caching | Low traffic, adds complexity |
-| Comparison mode | Not needed for portfolio |
-| User level selection | Single model |
-| Hybrid search | Storage limit exceeded |
-| Groq fallback | Custom model is the point |
-
----
-
 ## Next Steps
 
-1. ~~Update model architecture~~ ✅ Done (125.8M params)
-2. ~~Train Phase 1 (books)~~ ✅ Done (perplexity 2.20)
-3. ~~Train Phase 2 (context Q&A)~~ ✅ Done (64% accuracy)
-4. **Download model from HPC** ⬜ Pending
-5. **Connect RAG to model** ⬜ Pending
-6. **End-to-end testing** ⬜ Pending
-7. **Deploy to Railway** ⬜ Pending
+1. ~~Train custom model~~ ✅ Done (125.8M params)
+2. ~~Set up RAG system~~ ✅ Done (100% accuracy)
+3. ~~Tune generation params~~ ✅ Done (temp=0.3, top_k=20)
+4. **Integrate Groq API** ⬜ Pending
+5. **Implement lazy loading** ⬜ Pending
+6. **Create FastAPI endpoints** ⬜ Pending
+7. **Build frontend with demo toggle** ⬜ Pending
+8. **Deploy to Railway** ⬜ Pending
 
 ---
 
-*Document version: 11.0*
-*Last updated: December 24, 2025*
+*Document version: 14.0*
+*Last updated: December 25, 2025*

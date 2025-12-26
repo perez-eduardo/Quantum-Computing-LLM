@@ -1,0 +1,28 @@
+{
+  "temp=0.2, top_k=30": {
+    "params": {
+      "temperature": 0.2,
+      "top_k": 30
+    },
+    "passed": 20,
+    "total": 20,
+    "pass_rate": 1.0,
+    "avg_score": 0.7625,
+    "avg_retrieve_time": 1.5651681780815125,
+    "avg_gen_time": 35.08235652446747,
+    "avg_total_time": 36.64752470254898
+  },
+  "temp=0.4, top_k=20": {
+    "params": {
+      "temperature": 0.4,
+      "top_k": 20
+    },
+    "passed": 19,
+    "total": 20,
+    "pass_rate": 0.95,
+    "avg_score": 0.765,
+    "avg_retrieve_time": 0.5588332056999207,
+    "avg_gen_time": 38.47816886901855,
+    "avg_total_time": 39.03700207471847
+  }
+}

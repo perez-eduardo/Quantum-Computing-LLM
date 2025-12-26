@@ -1,0 +1,215 @@
+[
+  {
+    "question": "What is a qubit?",
+    "keywords": [
+      "qubit",
+      "quantum",
+      "bit",
+      "state",
+      "superposition"
+    ],
+    "prompt": "Context: Q: is a qubit just a tiny particle? A: A qubit is any quantum system with two states we can control. Could be an electron spin, photon polarization, or superconducting circuit. The physical form varies but the math is the same. Q: What is a qubit? A: A qubit, short for quantum bit, is the basic unit of information in quantum computing. Unlike a classical bit that can only be 0 or 1, a qubit can be 0, 1, or both at the same time thanks to a property called superposition. This is what gives quantum computers their potential power. Q: What is a quantum bit fundamentally? A: A qubit is the fundamental unit of quantum information. It can exist in superposition of 0 and 1. The qubit is defined by its state space, not physical implementation. Question: What is a qubit? Answer:"
+  },
+  {
+    "question": "What is quantum entanglement?",
+    "keywords": [
+      "entangle",
+      "correlat",
+      "particle",
+      "measure",
+      "state"
+    ],
+    "prompt": "Context: Q: What is quantum entanglement? A: Quantum entanglement is a special connection between two or more qubits where they become linked together. When qubits are entangled, measuring one instantly affects the other, no matter how far apart they are. Einstein famously called this spooky action at a distance. It's a key resource that makes Q: What is quantum entanglement, and what are its key properties and implications in the context of quantum systems? A: Quantum entanglement is a peculiar phenomenon where two or more quantum particles become linked together in such a way that they share the same fate, no matter how far apart they are. This means that measuring the quantum state of one particle instantaneously influences the state of the other(s), ev Q: What really is Quantum Entanglement and what are its benefits? A: There are many different levels of explanation for what entanglement really is: the following answers might help: does CNOT gate cause entanglement? Does the CX gate always leave the first qubit unchanged and swap the amplitudes of the second one? How do I show that a two-qubit state is an entangled Question: What is quantum entanglement? Answer:"
+  },
+  {
+    "question": "What is superposition?",
+    "keywords": [
+      "superposition",
+      "multiple",
+      "state",
+      "simultaneous"
+    ],
+    "prompt": "Context: Q: Explain quantum superposition, including its fundamental principles, how it's mathematically represented, and a common example illustrating the concept. A: Quantum Superposition Explained Quantum superposition is a fundamental principle of quantum mechanics stating that a quantum system\u2014such as an electron\u2014can exist in multiple states simultaneously. Unlike classical systems, where an object has definite properties (e.g., a definite position or momentu Q: is superposition like being in two places at once? A: Not exactly physical locations, but similar idea for states. The qubit has some probability of each outcome. It genuinely exists in a combination until measured. Q: What is quantum superposition? A: Superposition allows quantum systems to exist in multiple states simultaneously. The system is described by a sum of possibilities. Measurement collapses superposition to one outcome. Question: What is superposition? Answer:"
+  },
+  {
+    "question": "What is a quantum gate?",
+    "keywords": [
+      "gate",
+      "operation",
+      "qubit",
+      "unitary",
+      "transform"
+    ],
+    "prompt": "Context: Q: what is a quantum gate in simple terms? A: A quantum gate is an operation that changes a qubit's state. Like logic gates in regular computers but for quantum information. Gates are the building blocks of quantum algorithms. Q: What is a quantum gate? A: A quantum gate is an operation that changes the state of qubits, similar to how logic gates work in regular computers. Quantum gates manipulate qubits by rotating their states or entangling them with other qubits. Common examples include the Hadamard gate, which creates superposition, and the CNOT g Q: Definition of a quantum gate A: Sometimes people mean unitary-only. Sometimes they mean generically anything you might do to the qubits (like a measurement gate or a reset gate or a dynamical decoupling gate or a leakage removal gate). Personally I prefer the wider definition, since in error correction the way we plan to implement Question: What is a quantum gate? Answer:"
+  },
+  {
+    "question": "What is Shor's algorithm?",
+    "keywords": [
+      "shor",
+      "factor",
+      "prime",
+      "exponential",
+      "cryptograph"
+    ],
+    "prompt": "Context: Q: Shor's Algorithm and Permutations A: It appears you may have entirely misunderstood or are not aware of several fundamental concepts of quantum computation, namely: superposition and quantum parallelism. I will not try to explain how Shor's algorithm works because I'm certain any introductory book will do a better job. However, I highl Q: Probability of success proof for Shor's algorithm A: TL;DR This is a consequence of the Chinese Remainder theorem and the fact that in any group if $g^k$ is the identity then the order of $g$ divides $k$ . Setup We are factoring an odd composite positive integer $N=p_1^{\\alpha_1}\\dots p_m^{\\alpha_m}$ where $p_i$ are distinct primes and $\\alpha_i$ are  Q: Shor: Modular exponentiation vs modular multiplication A: Shor's algorithm finds the period of a modular multiplication by performing a modular exponentiation with a superposed exponent. The different authors are just emphasizing different parts of the algorithm; they're describing the same thing. Question: What is Shor's algorithm? Answer:"
+  },
+  {
+    "question": "What is Grover's algorithm?",
+    "keywords": [
+      "grover",
+      "search",
+      "speedup",
+      "database"
+    ],
+    "prompt": "Context: Q: Grover's algorithm: Rotation in opposite direction A: Well, technically, this works, but the complexity is worse than what you think. The problem is this sentence: Obviously, knowing the non-solutions is equivalent to knowing the solutions themselves. That's true, but knowing the non-solutions entirely is hard. Let us assume that I'm looking for an $n$ Q: How does an oracle function in Grover's algorithm actually work? A: Let $f$ be your favorite $\\mathrm{SAT}$ problem. For example, one that I like is : Are there integers $x_1, x_2, x_3$ , each $-2^{50}\\le x_1,x_2,x_3 \\le 2^{50}$ , with $x_1^3+x_2^3+x_3^3=42?$ Write $f$ as a sequence of irreversible $\\mathsf{NAND}$ gates, etc., and convert them to a sequence of rever Q: Grover's algorithm in a nutshell A: I will attempt here to address the question of how Grover's algorithm would work, for the specific task of searching a target entry (let's say a word ) in a database of such entries (shall we call it a book ?). There have already been plenty of discussions about the general structure of the algorith Question: What is Grover's algorithm? Answer:"
+  },
+  {
+    "question": "What is quantum error correction?",
+    "keywords": [
+      "error",
+      "correct",
+      "logical",
+      "code"
+    ],
+    "prompt": "Context: Q: What is quantum error correction? A: Quantum error correction is a technique to protect quantum information from errors caused by decoherence and noise. Since qubits are fragile, errors happen frequently. Error correction uses multiple physical qubits to create one logical qubit that is more resistant to errors. This is essential for b Q: What is quantum error correction, why is it necessary in quantum computing, and what are the basic principles behind a quantum error correction code? A: Quantum Error Correction (QEC) Quantum error correction is a technique used to protect quantum information from errors caused by decoherence and other quantum noise. It involves encoding quantum information in a larger quantum system, which allows for the detection and correction of errors without d Q: What is quantum error correction, why is it necessary in quantum computing, and what are some of the fundamental principles behind it? A: What is Quantum Error Correction (QEC)? Quantum error correction (QEC) is a fault-tolerant method to protect quantum information from decoherence and other quantum noise effects. It is analogous to classical error correction but adapted to handle the unique challenges posed by quantum mechanics. QEC Question: What is quantum error correction? Answer:"
+  },
+  {
+    "question": "What is the Hadamard gate?",
+    "keywords": [
+      "hadamard",
+      "superposition",
+      "gate",
+      "equal",
+      "probability"
+    ],
+    "prompt": "Context: Q: Could the Hadamard gate have been constructed differently with similar characteristics? A: The Hadamard gate has close ties to the discrete Fourier transform. Consider the DFT for an $N$ -level system: $$\\vert j \\rangle = \\frac{1}{\\sqrt{N}} \\sum\\limits_{k=0}^{N-1} e^{\\frac{i2 \\pi j k}{N}} \\vert k \\rangle.$$ For $N=2$ this is simply $$\\vert j \\rangle = \\frac{1}{\\sqrt{2}}\\begin{bmatrix}1 &  Q: What is the Hadamard gate? A: The Hadamard gate is one of the most important quantum gates. It takes a qubit that is definitely 0 or 1 and puts it into an equal superposition of both states. Think of it as taking a coin lying flat and flipping it into a spinning state where it's equally likely to land on heads or tails. Q: what does the Hadamard gate do? A: The Hadamard gate creates superposition from a definite state. It puts a qubit into equal probability of 0 and 1. Essential for starting quantum algorithms. Question: What is the Hadamard gate? Answer:"
+  },
+  {
+    "question": "What is quantum decoherence?",
+    "keywords": [
+      "decoherence",
+      "environment",
+      "loss",
+      "coherence",
+      "noise"
+    ],
+    "prompt": "Context: Q: What are the primary decoherence mechanisms that affect physical systems, and how do they lead to the loss of quantum coherence? A: Decoherence refers to the loss of quantum coherence, where a system's superposition of quantum states degrades into a classical mixture of states. This occurs due to the interaction of the quantum system with its environment. Several mechanisms contribute to decoherence: Interaction with the Environ Q: What are the main decoherence mechanisms in quantum systems, and how do they lead to the loss of quantum coherence? A: Decoherence is the process by which quantum systems lose their quantum properties and begin to exhibit classical behavior. This loss of coherence arises from the interaction of the quantum system with its environment. Several mechanisms contribute to decoherence, each arising from a different type o Q: What is decoherence? A: Decoherence is the loss of quantum coherence due to interaction with the environment. It causes superpositions to decay into classical mixtures. Decoherence is the primary obstacle to maintaining quantum information in quantum computers. Question: What is quantum decoherence? Answer:"
+  },
+  {
+    "question": "What is a quantum circuit?",
+    "keywords": [
+      "circuit",
+      "gate",
+      "qubit",
+      "operation",
+      "sequence"
+    ],
+    "prompt": "Context: Q: What is a quantum circuit? A: A quantum circuit is a model for quantum computation where qubits are represented as lines and quantum gates are applied in sequence. It's similar to how classical circuit diagrams show logic gates. Quantum circuits are the standard way to describe and program quantum algorithms. Q: Quantum circuit, Fourier Transform/Decomposition? A: A quantum circuit is a sequence of initialization, resets, and quantum gates - typically a quantum circuit ends in measurements. When you reuse a quantum circuit - it precedes another quantum circuit. So in this case of QFT the implementation is over the amplitudes of a wavefunction. (Note this is d Q: How are quantum circuits constructed on cloud-based quantum computers? A: I think the notion of \"quantum circuit\" is a bit confusing: it tricks us by making us think during the compilation an electrical signal is going a physical circuit made of wires and logical gates, a bit like in classical computing. Actually, in quantum computing the circuit refers to a timeline not  Question: What is a quantum circuit? Answer:"
+  },
+  {
+    "question": "What is quantum computing?",
+    "keywords": [
+      "quantum",
+      "comput",
+      "qubit",
+      "classical"
+    ],
+    "prompt": "Context: Q: What is quantum computing? A: Quantum computing is a type of computing that uses the principles of quantum mechanics to process information. Unlike regular computers that use bits (0s and 1s), quantum computers use quantum bits or qubits, which can exist in multiple states at once. This allows quantum computers to solve certain  Q: Quantum Computing Project Inquiry A: If you are looking for a place to start, I probably start by asking you a few clarifying questions. Quantum Computation & Information is a broad field. I would say that it can primarily be viewed as a spectrum, similar to classical computing, from hardware up to algorithms. To get an idea of the har Q: What is quantum computing vs. what is not quantum computing A: The difficulty with explaining quantum computing is that quantum objects and processes have no direct classical analogue; they're an entirely new ontological category. For example, you might have learned in high school physics that light \"is both a particle and a wave\" in an attempt to relate it to  Question: What is quantum computing? Answer:"
+  },
+  {
+    "question": "What is the Bloch sphere?",
+    "keywords": [
+      "bloch",
+      "sphere",
+      "qubit",
+      "state",
+      "visual"
+    ],
+    "prompt": "Context: Q: Meaning of a pound sign (#) on a Bloch sphere A: It's just showing the three-dimensionality of the sphere. Most representations I've seen don't add that since the dotted ellipse already communicates the idea of a sphere. For example: Q: How is the surface of a Bloch sphere a Hilbert space? A: The surface of a Bloch sphere is not a Hilbert space. Maybe they meant to write that it's a valid projective Hilbert space (in particular it's isomorphic to $\\mathbb{CP}^1$ )? It's not a vector space, so it cannot be a Hilbert space (note that a \" projective Hilbert space \" is, perhaps somewhat conf Q: What utility is provided by the Bloch sphere visualization? A: Some people really do visualise single qubit operations by thinking about the Bloch sphere, and they work out everything based on that picture. Those who like thinking in that way are often incredibly quick at these sorts of manipulations, and have more intuitive understandings for why things work.  Question: What is the Bloch sphere? Answer:"
+  },
+  {
+    "question": "What is quantum teleportation?",
+    "keywords": [
+      "teleport",
+      "entangle",
+      "state",
+      "transfer",
+      "classical"
+    ],
+    "prompt": "Context: Q: What is quantum teleportation? A: Quantum teleportation is a technique to transfer quantum information from one location to another using entanglement and classical communication. It doesn't transport matter or energy instantly - the quantum state is destroyed at the source and recreated at the destination. It's a key protocol in qu Q: What are the fundamental principles underlying quantum teleportation, and how does it differ from classical teleportation methods? A: Quantum teleportation is a process that transfers the quantum state of a particle to another particle at a distant location, using entanglement and classical communication. It's crucial to understand that it does not transfer the particle itself, only its quantum state. The original state is destroy Q: What are the applications of quantum teleportation? A: Teleportation enables quantum state transfer in networks, quantum computing with distributed resources, and quantum repeaters. It is fundamental for connecting quantum devices. Teleportation underlies many quantum communication protocols. Question: What is quantum teleportation? Answer:"
+  },
+  {
+    "question": "What is a CNOT gate?",
+    "keywords": [
+      "cnot",
+      "control",
+      "target",
+      "gate",
+      "qubit"
+    ],
+    "prompt": "Context: Q: What is CNOT1,3 gate? In general, what is CNOT1,n gate? A: Without context, we can only guess. My guess would be that CNOT1,3 means a controlled-not, controlled off qubit 1 and targetting qubit 3. In a 3-qubit setting, the gate would then look like $$ |0\\rangle\\langle 0|\\otimes I\\otimes I+|1\\rangle\\langle 1|\\otimes I\\otimes X. $$ Q: What is the analog of the CNOT gate in an arbitrary basis? A: The CNOT gate is equal to $I - 2|v\\rangle\\langle v|$ where $|v\\rangle = |1\\rangle\\otimes|-\\rangle$ . The simplest way to generalize CNOT is to vary $v$ . For example, the CZ gate is what you get from $|v\\rangle = |1\\rangle\\otimes|1\\rangle$ . Q: Explain the representation of the CNOT gate in ZX-calculus A: I am going to assume that $|0\\rangle$ is represented by , and $|1\\rangle$ by . Then, represents the bit-flip, or NOT gate. What it does is: $|x\\rangle\\mapsto |x\\oplus1\\rangle$ . This can be verified easily in the graphical calculus, using the \"spider\" rule: and Now, by definition, CNOT controls NOT: Question: What is a CNOT gate? Answer:"
+  },
+  {
+    "question": "What is quantum supremacy?",
+    "keywords": [
+      "supremacy",
+      "advantage",
+      "classical",
+      "faster"
+    ],
+    "prompt": "Context: Q: What is quantum supremacy? A: Quantum supremacy, also called quantum advantage, is the point where a quantum computer can solve a problem that no classical computer could solve in a reasonable amount of time. Google claimed to achieve this in 2019 when their quantum computer completed a calculation in minutes that would take cla Q: What is Quantum Supremacy, and why is it a significant milestone in the field of quantum computing? A: What is Quantum Supremacy? Quantum supremacy, now often referred to as quantum advantage, is the point at which a quantum computer can perform a calculation that no classical computer can perform in a reasonable amount of time, regardless of the usefulness of the calculation. It's important to under Q: What is quantum advantage versus supremacy? A: Supremacy means any classical computer cannot match the quantum performance. Advantage means practical benefit over available classical methods. Advantage is more relevant for applications. Question: What is quantum supremacy? Answer:"
+  },
+  {
+    "question": "What is a quantum register?",
+    "keywords": [
+      "register",
+      "qubit",
+      "multiple",
+      "state"
+    ],
+    "prompt": "Context: Q: What is a quantum register? A: A quantum register is a collection of qubits treated as a unit. Registers often correspond to logical groupings like input data, ancillas, or output. The term comes from classical computing where registers hold data for processing. Q: What is a qubit register? A: A qubit register is a collection of qubits used together in a quantum computation. Like a classical computer's registers hold bits for processing, quantum registers hold qubits. The register's size limits the problems that can be directly encoded. Q: What is a classical register in quantum circuits? A: A classical register stores measurement results within a quantum program. Classical bits hold the outcomes and can be used for control flow. Quantum frameworks provide classical registers alongside quantum registers. Question: What is a quantum register? Answer:"
+  },
+  {
+    "question": "What is measurement in quantum computing?",
+    "keywords": [
+      "measure",
+      "collapse",
+      "state",
+      "outcome",
+      "probabilit"
+    ],
+    "prompt": "Context: Q: What is measurement in quantum computing, what role does it play, and what are some of the key properties and challenges associated with it? A: Measurement in Quantum Computing In quantum computing, measurement is the process of extracting classical information from a quantum system. Unlike classical measurements, quantum measurements fundamentally alter the state of the system being measured, due to the principle of superposition and entan Q: What does \"measuring a state\" mean? A: Look like a lot of misunderstanding. If you measure a state $\\alpha|0\\rangle+\\beta|1\\rangle$ in computational basis, the state collapses either to $|0\\rangle$ or $|1\\rangle$ . In Quantum Information we say that we measured state $|0\\rangle$ or $|1\\rangle$ , or simply we measured $0$ or $1$ . There i Q: what does it mean to \"measure a qubit\" if measurement is defined on operators A: Measurement is defined with respect to a measurement basis . Given a state $\\rho$ , and a measurement basis $\\{|u_k\\rangle\\}_k$ , the measurement results in the outcome probabilities $p_k = \\langle u_k|\\rho |u_k\\rangle$ . More generally, measurement can be defined as a POVM $\\{\\mu_k\\}_k$ , in which  Question: What is measurement in quantum computing? Answer:"
+  },
+  {
+    "question": "What is quantum interference?",
+    "keywords": [
+      "interfere",
+      "amplitude",
+      "wave",
+      "cancel",
+      "probabilit"
+    ],
+    "prompt": "Context: Q: What is quantum interference in solids, and what are some of its manifestations or experimental observations? A: Quantum interference in solids refers to the phenomenon where the wave-like nature of electrons (or other quasiparticles) within a solid material leads to constructive or destructive interference effects. This occurs when multiple paths exist for a particle to travel from one point to another, and t Q: What is meant by the term \"quantum interference\"? A: The term is most often used in the context of the two-slit experiment . The interference pattern that you see, which is not simply what you'd get if you added the wavefunction ( $\\Psi_A$ ) associated with going through slit A to the wavefunction ( $\\Psi_B$ ) going through slit B, but there is a \"mix Q: What is quantum interference? A: Quantum interference is when quantum states combine in ways that either strengthen or weaken each other, similar to how waves can add up or cancel out. Quantum algorithms use interference to amplify correct answers and cancel wrong ones. This is a key mechanism that makes quantum algorithms work. Question: What is quantum interference? Answer:"
+  },
+  {
+    "question": "What is a universal quantum gate set?",
+    "keywords": [
+      "universal",
+      "gate",
+      "set",
+      "comput",
+      "any"
+    ],
+    "prompt": "Context: Q: What is a universal gate set? A: A universal gate set is a collection of gates that can approximate any quantum operation to arbitrary precision. A common universal set includes all single-qubit gates plus CNOT. Alternatively, Hadamard, T, and CNOT form a discrete universal set. Universality means any algorithm can be compiled to t Q: What does it mean for a set of quantum gates to be universal, and what are some examples of universal gate sets? A: Definition of Universality A set of quantum gates is said to be universal if any arbitrary quantum operation (unitary transformation) on n qubits can be approximated to arbitrary accuracy by a quantum circuit consisting only of gates from that set. This means that by combining gates from a universal Q: Does anyone know the list of all known universal sets of quantum gates? A: Too many to list There exist uncountably many universal sets of gates. We will sketch a proof of this fact by outlining a construction of an uncountable, though by no means exhaustive, family of such sets. First, recall (e.g. from sections 4.5.2 and 4.5.3 of Nielsen & Chuang) that if $\\mathcal{A}$ i Question: What is a universal quantum gate set? Answer:"
+  },
+  {
+    "question": "What is quantum parallelism?",
+    "keywords": [
+      "parallel",
+      "superposition",
+      "simultaneous",
+      "comput"
+    ],
+    "prompt": "Context: Q: What is quantum parallelism? A: Quantum parallelism is the ability of quantum computers to evaluate many possibilities simultaneously thanks to superposition. When a qubit is in superposition, operations on it affect all possible states at once. This is different from classical parallel computing where you need separate processors Q: Can I imagine quantum computers as working via parallel computing? A: As I suggest in the comments, I don't think that it is going to help you to understand quantum computation in terms of parallelism. To illustrate why, I will describe a simple two-qubit computation, in which \u2014 if you were absolutely adamant \u2014 you could claim there is computation happening in paralle Q: what is quantum parallelism in simple terms? A: A quantum computer evaluates many inputs simultaneously. Superposition lets all possibilities exist at once. Clever algorithms extract useful answers from this parallelism. Question: What is quantum parallelism? Answer:"
+  }
+]

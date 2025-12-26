@@ -1,6 +1,6 @@
 # Initial Exploratory Brainstorming: Next LLM Project Stack
 
-**Date:** December 20, 2025 (Updated December 24, 2025)
+**Date:** December 20, 2025 (Updated December 26, 2025)
 **Project:** Quantum Computing LLM  
 **Purpose:** Portfolio demonstration piece  
 **Expected Traffic:** Minimal (recruiters, students)
@@ -15,171 +15,144 @@ The Philippine Legal Assistant project revealed infrastructure limitations:
 2. **Render free tier:** 512MB RAM cannot handle local Sentence Transformers model
 
 Need a stack that is:
-- Cost-optimized (minimal monthly spend)
+- Cost-optimized ($12/month budget)
 - Reliable (no shared rate limits)
 - Fast (minimal cold starts)
 
 ---
 
-## Project Architecture
+## Final Architecture
 
-This project combines two components:
+### Two LLM Modes
 
-1. **Custom Transformer** (125.8M params, trained from scratch) for portfolio demonstration
-2. **RAG System** to provide context at inference time
+| Mode | LLM | Speed | Purpose |
+|------|-----|-------|---------|
+| Production | Groq API | ~1-2s | Fast UX |
+| Demo | Custom 125.8M | ~35-37s | Prove ML skills to recruiters |
 
-The custom transformer shows recruiters you understand ML internals. RAG provides relevant Q&A pairs as context.
-
-**Model requires context to function.** Without RAG, outputs are gibberish. This is by design.
-
----
-
-## Final Stack
+### Stack
 
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
 | **Frontend + Backend** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Custom)** | Your trained transformer | $0 | 125.8M params, context-aware |
+| **LLM (Production)** | Groq API | $0 | Free tier sufficient |
+| **LLM (Demo)** | Custom 125.8M | $0 | Lazy loaded, ~35-37s |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
-| **Training Compute** | Oregon State HPC | $0 | H100 GPUs |
 
-**Total: ~$5/month**
+**Total: ~$5/month** (within $12 budget)
 
 ---
 
-## Custom Transformer Training ✅ COMPLETE
+## Pipeline
 
-### Architecture (Final)
+```
+User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
+                                                                         ↓
+                                                              Groq (default) or Custom (demo)
+```
+
+---
+
+## Custom Model (Demo Mode)
+
+### Why Keep It?
+
+Even though Groq handles production, the custom model demonstrates:
+- Transformer architecture design
+- Two-phase training pipeline
+- HPC cluster experience (H100 GPUs)
+- Data processing and cleaning
+
+Recruiters can toggle "Demo Mode" to see the trained model in action.
+
+### Configuration
 
 | Parameter | Value |
 |-----------|-------|
-| Type | Decoder-only (GPT-style) |
-| Parameters | **125,848,320 (125.8M)** |
-| Layers | 12 |
-| Attention heads | 12 |
-| Embedding dimension | 768 |
-| Feed-forward dimension | 3072 |
-| Vocabulary | 16,384 (custom BPE) |
-| Context length | 1024 tokens |
+| Temperature | 0.2 |
+| Top-k | 30 |
+| Pass Rate | 100% |
+| Keyword Score | 76-80% |
+| Inference time | ~35-37s |
 
-### Two-Phase Training Approach
+### Parameter Tuning (December 26, 2025)
 
-**Phase 1: Book Pretraining**
-- Data: 620K words from 5 cleaned textbooks
-- Purpose: Learn coherent prose generation
-- Result: Perplexity 2.20 (17 epochs)
+Battery test on HPC: 24 combinations × 20 questions = 480 tests in 5.8 minutes.
 
-**Phase 2: Context Q&A Fine-tuning**
-- Data: 28,071 context-format Q&A pairs
-- Purpose: Learn to use RAG context
-- Result: 64% keyword accuracy (10 epochs)
+| Parameters | Pass Rate | Keyword Score |
+|------------|-----------|---------------|
+| **temp=0.2, top_k=30** | **100%** | **80.5%** |
+| temp=0.4, top_k=20 | 100% | 78.8% |
+| temp=0.3, top_k=50 (old) | 100% | 74.2% |
 
-### Training Results
+### Lazy Loading Strategy
 
-| Version | Params | Format | Perplexity | Accuracy | Status |
-|---------|--------|--------|------------|----------|--------|
-| v1 | 1.2M | Plain Q&A | 15.55 | 14.8% | ❌ Garbage data |
-| v3 | 1.2M | Plain Q&A | 89.63 | 16.4% | ❌ Cannot use context |
-| v4 | 1.2M | Plain Q&A | 91.80 | 11.4% | ❌ Cannot use context |
-| **v5** | **125.8M** | **Context-aware** | **2.20** | **64%** | **✅ Production** |
+| Approach | RAM Usage | Cost |
+|----------|-----------|------|
+| Always loaded | ~700MB constant | ~$6-8/month |
+| **Lazy load + timeout** | ~200MB idle | **~$2-3/month** |
 
-### Training Data
+Model loads on first demo request, unloads after 5 min idle.
 
-| Source | Rows | Context Type |
-|--------|------|--------------|
-| claude_qa_context.csv | 14,400 | Topic-matched relevant Q&A pairs |
-| cot_qa_context.csv | 2,998 | Chain-of-thought reasoning |
-| stackexchange_qa_context.csv | 10,673 | Tags + question body |
-| combined_books_cleaned.txt | 620K words | Phase 1 pretraining |
-| **Total Q&A** | **28,071** | |
+Cold start adds ~5s (negligible vs 35s inference).
 
-### Compute: Oregon State University HPC
+---
 
-| Field | Value |
-|-------|-------|
-| Host | `submit-b.hpc.engr.oregonstate.edu` |
-| Username | `pereze4` |
-| Scheduler | SLURM |
-| GPU | H100 80GB |
-| Phase 1 time | ~13 min |
-| Phase 2 time | ~116 min |
+## RAG System ✅ COMPLETE
 
-### Training Checklist ✅
+### Retrieval Quality: 100%
 
-- [x] Gather training data (quantum computing corpus)
-- [x] Clean Stack Exchange data
-- [x] Clean book texts (620K words)
-- [x] Train custom tokenizer (16K vocab)
-- [x] Abandon ChatGPT data (94% garbage)
-- [x] Generate Claude Q&A (15,000 pairs)
-- [x] Obtain CoT Reasoning Dataset (2,998 pairs)
-- [x] Add context to all datasets
-- [x] Implement 125.8M param architecture
-- [x] Phase 1: Book pretraining (17 epochs, perplexity 2.20)
-- [x] Phase 2: Context Q&A fine-tuning (10 epochs)
-- [x] Evaluate model (64% keyword accuracy)
-- [x] Set up RAG system (94% retrieval)
-- [ ] Connect RAG to model
-- [ ] End-to-end testing
-- [ ] Deploy to Railway
+| Metric | Value |
+|--------|-------|
+| Q&A embeddings | 28,071 |
+| Test pass rate | **100%** |
+| Search time | ~300ms |
+
+### Index Fix (December 25, 2025)
+
+IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
 ## Component Details
 
+### Generation: Groq API (Production)
+
+| Setting | Value |
+|---------|-------|
+| Model | llama-3.3-70b-versatile |
+| Free tier | 30 req/min, 14,400 req/day |
+| Speed | ~1-2s per response |
+
+### Generation: Custom Model (Demo)
+
+| Setting | Value |
+|---------|-------|
+| Parameters | 125.8M |
+| Speed | ~35-37s per response |
+| temp | 0.2 |
+| top_k | 30 |
+
 ### Embeddings: Voyage AI
 
-| Provider | Free Tokens | Free RPM | Paid Rate |
-|----------|-------------|----------|-----------|
-| Voyage AI | 200M | 2000 RPM (with card) | $0.02/1M |
-
-**Critical:** Must add payment method to unlock 2000 RPM
+| Provider | Free Tokens | Free RPM |
+|----------|-------------|----------|
+| Voyage AI | 200M | 2000 RPM |
 
 ### Database: Neon Free Tier
 
 | Resource | Limit | Current Usage |
 |----------|-------|---------------|
-| Storage | 0.5 GB | 26,764 embeddings |
-| Compute | 100 CU-hours/month | Normal |
+| Storage | 0.5 GB | 28,071 embeddings |
 
-### Frontend + Backend: Railway Hobby
+### Hosting: Railway Hobby
 
 | Setting | Value |
 |---------|-------|
 | Cost | $5/month |
-| Model size | ~500MB (125.8M params) |
+| RAM limit | 8GB |
 | Always on | Yes |
-
----
-
-## RAG System Status ✅ COMPLETE
-
-### Retrieval Quality: 94%
-
-| Metric | Value |
-|--------|-------|
-| Q&A embeddings | 26,764 |
-| Test pass rate | 94% |
-
----
-
-## Rejected Alternatives
-
-### ChatGPT API for Synthetic Q&A
-- **Status:** ABANDONED
-- 94% garbage rate (boilerplate, templates)
-- **Replaced with:** Claude-generated Q&A
-
-### Plain Q&A Training Format
-- **Status:** ABANDONED
-- Model cannot use RAG context if not trained on context format
-- **Replaced with:** Two-phase context-aware training
-
-### 1.2M Parameter Model
-- **Status:** ABANDONED
-- Cannot generate coherent sentences
-- **Replaced with:** 125.8M parameters
 
 ---
 
@@ -187,11 +160,15 @@ The custom transformer shows recruiters you understand ML internals. RAG provide
 
 | Component | Monthly Cost |
 |-----------|--------------|
-| Railway (Frontend + Backend) | $5 |
-| Voyage AI (Embeddings) | $0 |
-| Neon (Database) | $0 |
-| HPC (Training) | $0 (one-time) |
-| **Total** | **$5/month** |
+| Railway (hosting) | $5 |
+| Groq API | $0 (free tier) |
+| Voyage AI | $0 (free tier) |
+| Neon | $0 (free tier) |
+| **Total** | **~$5/month** |
+
+**Budget:** $12/month
+**Actual:** ~$5/month
+**Headroom:** ~$7/month
 
 ---
 
@@ -201,23 +178,21 @@ The custom transformer shows recruiters you understand ML internals. RAG provide
 
 2. **Two-phase training works.** Books for prose, context Q&A for RAG usage.
 
-3. **125M params is the sweet spot.** 1.2M = gibberish, 125M = coherent with context.
+3. **125M params is the sweet spot.** 1.2M = gibberish, 125M = coherent.
 
-4. **Context format must match inference.** Train on what you'll use.
+4. **Lower temperature = better.** temp=0.2, top_k=30 achieved 100% pass rate.
 
-5. **Topic-matched context beats random.** Relevant Q&A pairs simulate RAG.
+5. **Lazy loading saves cost.** $2-3/month vs $6-8/month always loaded.
 
-6. **Model needs context to function.** Without RAG, outputs are gibberish. By design.
+6. **IVFFlat index can miss results.** Exact search more reliable.
 
-7. **64% keyword accuracy is achievable.** Major improvement from 11.4%.
+7. **Groq solves the speed problem.** Fast production UX, custom model for demo.
 
-8. **Book cleaning matters.** Remove copyright, TOC, spam.
+8. **Extraction function matters.** rfind() grabbed wrong answer, find() fixed it.
 
-9. **SLURM time limits matter.** Set --time=04:00:00 for safety.
-
-10. **PYTHONUNBUFFERED=1 for real-time output.** Otherwise logs are delayed.
+9. **HPC speeds up testing.** 480 tests in 5.8 min vs ~280 min on CPU.
 
 ---
 
-*Document version: 8.0*
-*Last updated: December 24, 2025*
+*Document version: 12.0*
+*Last updated: December 26, 2025*
