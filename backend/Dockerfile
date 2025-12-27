@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libpq-dev curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libpq-dev git git-lfs && rm -rf /var/lib/apt/lists/*
 
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 
@@ -13,9 +13,14 @@ COPY backend/ ./backend/
 COPY training/scripts/ ./training/scripts/
 COPY training/tokenizer/ ./training/tokenizer/
 
+# Clone only the model file using Git LFS
 RUN mkdir -p /app/training/model && \
-    curl -L -o /app/training/model/final_model.pt \
-    "https://github.com/perez-eduardo/Quantum-Computing-LLM/raw/main/training/model/final_model.pt"
+    git lfs install && \
+    git clone --no-checkout --filter=blob:none https://github.com/perez-eduardo/Quantum-Computing-LLM.git /tmp/repo && \
+    cd /tmp/repo && \
+    git lfs pull --include="training/model/final_model.pt" && \
+    cp /tmp/repo/training/model/final_model.pt /app/training/model/ && \
+    rm -rf /tmp/repo
 
 WORKDIR /app/backend
 
