@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Force rebuild v2
+RUN echo "rebuild trigger v2"
+
 RUN apt-get update && apt-get install -y libpq-dev git git-lfs && rm -rf /var/lib/apt/lists/*
 
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -13,7 +16,6 @@ COPY backend/ ./backend/
 COPY training/scripts/ ./training/scripts/
 COPY training/tokenizer/ ./training/tokenizer/
 
-# Download model using Git LFS
 RUN mkdir -p /app/training/model && \
     git lfs install && \
     git clone --depth 1 https://github.com/perez-eduardo/Quantum-Computing-LLM.git /tmp/repo && \
