@@ -12,6 +12,9 @@ RUN pip install --no-deps voyageai && pip install -r requirements.txt
 COPY backend/ ./backend/
 COPY training/ ./training/
 
+# Debug: Check model file size
+RUN ls -la /app/training/model/ && head -c 100 /app/training/model/final_model.pt
+
 WORKDIR /app/backend
 
 EXPOSE 8000
