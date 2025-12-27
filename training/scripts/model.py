@@ -225,7 +225,7 @@ class QuantumLLM(nn.Module):
 
     @classmethod
     def load(cls, path, device='cpu'):
-        checkpoint = torch.load(path, map_location=device)
+        checkpoint = torch.load(path, map_location=device, weights_only=False)
         model = cls(checkpoint['config'])
         model.load_state_dict(checkpoint['model_state_dict'])
         return model
