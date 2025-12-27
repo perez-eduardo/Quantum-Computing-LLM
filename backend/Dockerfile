@@ -6,10 +6,13 @@ RUN apt-get update && apt-get install -y libpq-dev && rm -rf /var/lib/apt/lists/
 
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-deps voyageai && pip install -r requirements.txt
 
-COPY . .
+COPY backend/ ./backend/
+COPY training/ ./training/
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 
