@@ -1,0 +1,23 @@
+# Local development - full dependencies
+
+# Web framework
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Database
+psycopg2-binary==2.9.9
+
+# Embeddings
+voyageai==0.2.1
+
+# Model inference
+torch==2.1.2
+tokenizers==0.15.0
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+
+# Frontend
+flask==3.0.0
+requests==2.31.0
