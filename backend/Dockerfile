@@ -13,10 +13,10 @@ COPY backend/ ./backend/
 COPY training/scripts/ ./training/scripts/
 COPY training/tokenizer/ ./training/tokenizer/
 
-# Clone only the model file using Git LFS
+# Download model using Git LFS
 RUN mkdir -p /app/training/model && \
     git lfs install && \
-    git clone --no-checkout --filter=blob:none https://github.com/perez-eduardo/Quantum-Computing-LLM.git /tmp/repo && \
+    git clone --depth 1 https://github.com/perez-eduardo/Quantum-Computing-LLM.git /tmp/repo && \
     cd /tmp/repo && \
     git lfs pull --include="training/model/final_model.pt" && \
     cp /tmp/repo/training/model/final_model.pt /app/training/model/ && \
