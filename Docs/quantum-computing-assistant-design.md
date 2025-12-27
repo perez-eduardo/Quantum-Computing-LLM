@@ -37,9 +37,18 @@ This project proves ability to:
 | Backend Classes | ✅ COMPLETE (Retriever, QuantumInference, Pipeline) |
 | FastAPI App | ✅ COMPLETE (lazy loading, suggested questions) |
 | Frontend | ✅ COMPLETE (Flask + Jinja) |
-| Deployment | ⬜ Pending |
+| Deployment | ✅ COMPLETE (Railway, live) |
 
-**Next Action:** Deploy to Railway (Phase 5)
+---
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| **Frontend** | https://quantum-computing-llm.up.railway.app |
+| **Backend** | https://quantum-computing-llm-backend.up.railway.app |
+| **API Docs** | https://quantum-computing-llm-backend.up.railway.app/docs |
+| **Health Check** | https://quantum-computing-llm-backend.up.railway.app/health |
 
 ---
 
@@ -52,7 +61,7 @@ Quantum-Computing-LLM/
 │
 ├── training/
 │   ├── model/
-│   │   ├── final_model.pt              # 125.8M params
+│   │   ├── final_model.pt              # 125.8M params (Git LFS)
 │   │   └── config.json
 │   ├── tokenizer/
 │   │   └── tokenizer.json              # 16K vocab BPE
@@ -60,24 +69,30 @@ Quantum-Computing-LLM/
 │       └── model.py                    # QuantumLLM architecture
 │
 ├── backend/
-│   ├── scripts/                        # ✅ Existing utilities
+│   ├── Dockerfile                      # CPU PyTorch, Git LFS pull
+│   ├── Procfile
+│   ├── requirements.txt                # tokenizers==0.22.1
+│   ├── scripts/
 │   │   ├── retrieval.py                # Retriever class
 │   │   ├── inference.py                # QuantumInference class
 │   │   └── pipeline.py                 # QuantumRAGPipeline class
-│   └── app/                            # ✅ FastAPI app
+│   └── app/
 │       ├── __init__.py
 │       ├── config.py                   # Environment variables
 │       └── main.py                     # Endpoints, lazy loading
 │
-├── frontend/                           # ✅ Flask app
-│   ├── app.py                          # Flask server (port 3000)
-│   ├── requirements.txt                # flask, requests
+├── frontend/
+│   ├── Dockerfile
+│   ├── Procfile                        # gunicorn --timeout 600
+│   ├── app.py                          # Flask server
+│   ├── requirements.txt
 │   ├── static/
-│   │   └── style.css                   # All styles
+│   │   ├── style.css
+│   │   └── loading.gif
 │   └── templates/
 │       └── index.html                  # Jinja template with JS
 │
-└── .env                                # API keys
+└── .env                                # API keys (local only)
 ```
 
 ---
@@ -150,7 +165,7 @@ class QuantumRAGPipeline:
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| **Custom** | Custom 125.8M | ~35-37s | ✅ Implemented |
+| **Custom** | Custom 125.8M | ~50-80s | ✅ Deployed |
 | **Production** | Groq API | ~1-2s | ⬜ Add later |
 
 ### Pipeline
@@ -158,7 +173,7 @@ class QuantumRAGPipeline:
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Custom model (implemented)
+                                                              Custom model (deployed)
                                                               Groq API (later)
 ```
 
@@ -168,7 +183,7 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 |-----------|----------|-------|------|
 | **Frontend** | Flask + Jinja | instant | $0 |
 | **Backend** | FastAPI | instant | $0 |
-| **Generation (Custom)** | Custom 125.8M | ~35-37s | $0 (lazy loaded) |
+| **Generation (Custom)** | Custom 125.8M | ~50-80s | $0 (lazy loaded) |
 | **Generation (Groq)** | Groq API | ~1-2s | $0 (free tier) |
 | **Embeddings** | Voyage AI | ~100ms | $0 (free tier) |
 | **Database** | Neon (pgvector) | ~300ms | $0 (free tier) |
@@ -234,8 +249,8 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 |---------|-------|
 | Load trigger | First request |
 | Unload trigger | 5 min idle |
-| Cold start | ~5s |
-| Inference | ~35-37s |
+| Cold start | ~2s |
+| Inference | ~50-80s |
 | Cost savings | ~$4-5/month |
 
 ---
@@ -292,7 +307,7 @@ Response:
 ```json
 {
   "answer": "Quantum entanglement is a phenomenon where...",
-  "response_time_ms": 36000,
+  "response_time_ms": 75000,
   "model_loaded_fresh": false,
   "suggested_question": "What really is Quantum Entanglement and what are its benefits?"
 }
@@ -309,7 +324,7 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 ### Welcome Screen
 - Animated atom icon (CSS keyframes)
 - Welcome title and explanation text
-- Yellow disclaimer box: "Free-tier server, 40-90s response time"
+- Red disclaimer box: "Free-tier server, 40-90s response time"
 - 5 clickable starter questions:
   - "What is a qubit?"
   - "What is superposition?"
@@ -318,25 +333,27 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
   - "Why is quantum computing important?"
 
 ### Chat Interface
-- User messages (blue, right-aligned)
+- User messages (red, right-aligned)
 - AI messages (gray, left-aligned)
 - Response time display
 - Suggested follow-up button
 
 ### Loading Indicator
-- Animated atom with orbiting electrons
-- Rotating status messages (every 3s):
-  - "Searching knowledge base..."
-  - "Retrieving relevant context..."
-  - "Processing with 125.8M parameters..."
-  - etc.
-- Quantum facts (every 8s)
-- Patience reminder: "40-90 seconds on free-tier server"
+- Animated GIF
+- Rotating status messages (every ~11s):
+  - "Embedding your question with Voyage AI"
+  - "Searching knowledge base (28,071 Q&A pairs)"
+  - "Retrieved relevant context from Neon database"
+  - "Ranking results by relevance"
+  - "Building prompt with context"
+  - "Loading 125.8M parameter model"
+  - "Generating response"
+- Patience reminder: "This typically takes 40-90 seconds on our free-tier CPU server."
 
 ### Demo Mode UI (Later)
 
 When demo mode is enabled:
-- Show warning: "Demo mode uses custom model (~35s response time)"
+- Show warning: "Demo mode uses custom model (~50-80s response time)"
 - Show loading indicator during inference
 - Display model info: "125.8M parameter transformer trained from scratch"
 
@@ -350,16 +367,32 @@ When demo mode is enabled:
 |---------|-------|
 | Plan | Hobby ($5/month) |
 | RAM limit | 8GB |
-| Structure | Monorepo |
+| Structure | Monorepo (2 services) |
 | Always on | Yes |
 
 ### Environment Variables
 
+**Backend:**
 | Variable | Purpose |
 |----------|---------|
 | VOYAGE_API_KEY | Embeddings |
 | DATABASE_URL | Neon PostgreSQL connection |
-| GROQ_API_KEY | Groq generation (later) |
+
+**Frontend:**
+| Variable | Purpose |
+|----------|---------|
+| BACKEND_URL | Backend service URL |
+
+### Deployment Files
+
+**backend/Dockerfile:**
+- Python 3.11-slim base
+- CPU-only PyTorch
+- Git LFS for model download
+- Clone repo + pull LFS during build
+
+**frontend/Procfile:**
+- gunicorn with --timeout 600
 
 ---
 
@@ -391,7 +424,7 @@ When demo mode is enabled:
 
 ---
 
-## Next Steps
+## Completed Steps
 
 1. ~~Train custom model~~ ✅ Done (125.8M params)
 2. ~~Set up RAG system~~ ✅ Done (100% accuracy)
@@ -399,11 +432,15 @@ When demo mode is enabled:
 4. ~~Create backend classes~~ ✅ Done (Retriever, Inference, Pipeline)
 5. ~~Create FastAPI app~~ ✅ Done (lazy loading, suggested questions)
 6. ~~Build frontend~~ ✅ Done (Flask + Jinja)
-7. **Deploy to Railway** ⬜ Pending
-8. **Add Groq integration** ⬜ Pending (later)
-9. **Add demo mode toggle** ⬜ Pending (later)
+7. ~~Deploy to Railway~~ ✅ Done (live)
+
+## Future Improvements
+
+8. **Add Groq integration** ⬜ Pending
+9. **Add demo mode toggle** ⬜ Pending
+10. **Implement response caching** ⬜ Pending
 
 ---
 
-*Document version: 18.0*
-*Last updated: December 26, 2025*
+*Document version: 19.0*
+*Last updated: December 27, 2025*

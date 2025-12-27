@@ -24,7 +24,7 @@ body {
     height: 100vh;
     max-width: 900px;
     margin: 0 auto;
-    background-color: #111111;
+    background-color: #000000;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }
 
@@ -59,13 +59,14 @@ body {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    background-color: #111111;
+    background-color: #000000;
 }
 
 .messages {
     display: none;
     flex-direction: column;
     gap: 16px;
+    background-color: #000000;
 }
 
 /* ================================
@@ -442,7 +443,7 @@ body {
 }
 
 .chat::-webkit-scrollbar-track {
-    background: #111111;
+    background: #000000;
 }
 
 .chat::-webkit-scrollbar-thumb {

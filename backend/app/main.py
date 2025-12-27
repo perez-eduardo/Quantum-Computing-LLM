@@ -22,8 +22,6 @@ from pydantic import BaseModel
 SCRIPTS_PATH = Path(__file__).parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_PATH))
 
-print(f"DEBUG: SCRIPTS_PATH = {SCRIPTS_PATH}")
-
 from retrieval import Retriever
 from inference import QuantumInference
 
@@ -36,9 +34,6 @@ from app.config import (
     IDLE_TIMEOUT_SECONDS,
     validate_config,
 )
-
-print(f"DEBUG: MODEL_PATH = {MODEL_PATH}")
-print(f"DEBUG: TOKENIZER_PATH = {TOKENIZER_PATH}")
 
 
 # Global state for lazy loading
@@ -55,21 +50,13 @@ retriever: Optional[Retriever] = None
 
 def get_model() -> QuantumInference:
     """Get model instance, loading if necessary."""
-    print(f"DEBUG: get_model() called")
-    print(f"DEBUG: inference is None: {model_state.inference is None}")
-    print(f"DEBUG: loading: {model_state.loading}")
-    
     if model_state.inference is None:
         if model_state.loading:
-            print("DEBUG: Model already loading, returning 503")
             raise HTTPException(status_code=503, detail="Model is loading, please wait")
         
         model_state.loading = True
         try:
-            print(f"DEBUG: Starting model load...")
-            print(f"DEBUG: MODEL_PATH exists: {Path(MODEL_PATH).exists()}")
-            print(f"DEBUG: TOKENIZER_PATH exists: {Path(TOKENIZER_PATH).exists()}")
-            
+            print(f"Loading model from {MODEL_PATH}...")
             start = time.time()
             model_state.inference = QuantumInference(
                 model_path=str(MODEL_PATH),
@@ -77,11 +64,9 @@ def get_model() -> QuantumInference:
                 device="cpu"
             )
             elapsed = time.time() - start
-            print(f"DEBUG: Model loaded in {elapsed:.1f}s")
+            print(f"Model loaded in {elapsed:.1f}s")
         except Exception as e:
-            print(f"DEBUG: Model load FAILED: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Model load failed: {type(e).__name__}: {e}")
             raise
         finally:
             model_state.loading = False
@@ -175,18 +160,14 @@ async def lifespan(app: FastAPI):
     
     # Startup
     print("Starting Quantum Computing LLM API...")
-    print(f"DEBUG: Validating config...")
     validate_config()
-    print(f"DEBUG: Config validated")
     
     # Initialize retriever (lightweight, always loaded)
-    print(f"DEBUG: Initializing retriever...")
     retriever = Retriever()
     print("Retriever initialized")
     
     # Start idle checker background task
     task = asyncio.create_task(idle_checker())
-    print(f"DEBUG: Idle checker started")
     
     yield
     
@@ -247,72 +228,43 @@ async def health_check():
 @app.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest):
     """Answer a quantum computing question."""
-    print(f"DEBUG: /query endpoint hit")
-    print(f"DEBUG: Question: {request.question[:100]}")
-    
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     
     start_time = time.time()
     was_loaded = model_state.inference is not None
-    print(f"DEBUG: was_loaded = {was_loaded}")
     
     # Step 1: Retrieve context
-    print("DEBUG: Step 1 - Retrieving context...")
-    try:
-        results = retriever.search(request.question, top_k=5)
-        print(f"DEBUG: Retrieved {len(results) if results else 0} results")
-    except Exception as e:
-        print(f"DEBUG: Retrieval FAILED: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+    results = retriever.search(request.question, top_k=5)
     
     if not results:
         raise HTTPException(status_code=404, detail="No relevant context found")
     
     # Step 2: Build context from top 3 results
-    print("DEBUG: Step 2 - Building context...")
     context_parts = []
     for r in results[:3]:
         q = r["question"]
         a = r["answer"][:300]
         context_parts.append(f"Q: {q} A: {a}")
     context = " ".join(context_parts)
-    print(f"DEBUG: Context length: {len(context)} chars")
     
     # Step 3: Build prompt
-    print("DEBUG: Step 3 - Building prompt...")
     prompt = f"Context: {context} Question: {request.question} Answer:"
-    print(f"DEBUG: Prompt length: {len(prompt)} chars")
     
     # Step 4: Generate answer (loads model if needed)
-    print("DEBUG: Step 4 - Getting model...")
-    try:
-        inference = get_model()
-        print("DEBUG: Got model, generating...")
-        generated = inference.generate(
-            prompt,
-            max_new_tokens=MODEL_MAX_NEW_TOKENS,
-            temperature=MODEL_TEMPERATURE,
-            top_k=MODEL_TOP_K,
-        )
-        print(f"DEBUG: Generated {len(generated)} chars")
-        answer = inference.extract_answer(generated)
-        print(f"DEBUG: Extracted answer: {len(answer)} chars")
-    except Exception as e:
-        print(f"DEBUG: Generation FAILED: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+    inference = get_model()
+    generated = inference.generate(
+        prompt,
+        max_new_tokens=MODEL_MAX_NEW_TOKENS,
+        temperature=MODEL_TEMPERATURE,
+        top_k=MODEL_TOP_K,
+    )
+    answer = inference.extract_answer(generated)
     
     # Step 5: Get suggested follow-up question
-    print("DEBUG: Step 5 - Getting suggested question...")
     suggested = get_suggested_question(request.question, answer, results)
-    print(f"DEBUG: Suggested: {suggested[:50] if suggested else None}")
     
     # Step 6: Format response
-    print("DEBUG: Step 6 - Formatting response...")
     elapsed_ms = int((time.time() - start_time) * 1000)
     
     sources = [
@@ -323,8 +275,6 @@ async def query(request: QueryRequest):
         )
         for r in results[:3]
     ]
-    
-    print(f"DEBUG: Done! Response time: {elapsed_ms}ms")
     
     return QueryResponse(
         answer=answer,
@@ -338,4 +288,3 @@ async def query(request: QueryRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    

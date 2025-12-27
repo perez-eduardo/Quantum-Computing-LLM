@@ -1,6 +1,6 @@
 # Quantum Computing Assistant - Implementation Plan
 
-**Last Updated:** December 26, 2025
+**Last Updated:** December 27, 2025
 
 **Related Documents:**
 - Design Document: `quantum-computing-assistant-design.md`
@@ -15,8 +15,12 @@
 **Phase 2:** RAG System - ✅ COMPLETE (100% retrieval accuracy)
 **Phase 3:** Backend - ✅ COMPLETE (FastAPI with lazy loading)
 **Phase 4:** Frontend - ✅ COMPLETE (Flask + Jinja)
+**Phase 5:** Deployment - ✅ COMPLETE (Railway, live)
 
-**Next Action:** Deploy to Railway (Phase 5)
+**Live URLs:**
+- Frontend: https://quantum-computing-llm.up.railway.app
+- Backend: https://quantum-computing-llm-backend.up.railway.app
+- API Docs: https://quantum-computing-llm-backend.up.railway.app/docs
 
 ---
 
@@ -32,7 +36,7 @@ Quantum-Computing-LLM/
 │
 ├── training/
 │   ├── model/
-│   │   ├── final_model.pt              # 125.8M params (500MB)
+│   │   ├── final_model.pt              # 125.8M params (510MB, Git LFS)
 │   │   └── config.json
 │   ├── tokenizer/
 │   │   └── tokenizer.json              # 16K vocab BPE
@@ -43,23 +47,26 @@ Quantum-Computing-LLM/
 │       └── evaluate.py                 # Evaluation script
 │
 ├── backend/
-│   ├── scripts/                        # ✅ Existing utilities
+│   ├── Dockerfile                      # CPU-only PyTorch, Git LFS pull
+│   ├── Procfile                        # uvicorn startup
+│   ├── requirements.txt                # tokenizers==0.22.1
+│   ├── scripts/
 │   │   ├── retrieval.py                # Retriever class (Voyage + Neon)
 │   │   ├── inference.py                # QuantumInference class
-│   │   ├── pipeline.py                 # QuantumRAGPipeline class
-│   │   ├── verify_params.py            # Parameter testing
-│   │   ├── cache_contexts.py           # HPC context caching
-│   │   └── ...
-│   └── app/                            # ✅ FastAPI app
+│   │   └── pipeline.py                 # QuantumRAGPipeline class
+│   └── app/
 │       ├── __init__.py
 │       ├── config.py                   # Environment variables
 │       └── main.py                     # Endpoints, lazy loading
 │
-├── frontend/                           # ✅ Flask app
-│   ├── app.py                          # Flask server (port 3000)
-│   ├── requirements.txt                # flask, requests
+├── frontend/
+│   ├── Dockerfile                      # Python 3.11-slim
+│   ├── Procfile                        # gunicorn --timeout 600
+│   ├── app.py                          # Flask server
+│   ├── requirements.txt                # flask, requests, gunicorn
 │   ├── static/
-│   │   └── style.css                   # All styles
+│   │   ├── style.css
+│   │   └── loading.gif
 │   └── templates/
 │       └── index.html                  # Jinja template with JS
 │
@@ -67,13 +74,16 @@ Quantum-Computing-LLM/
 │   ├── raw/
 │   └── processed/
 │
-├── .env                                # API keys
+├── .env                                # API keys (local only)
+├── .gitattributes                      # Git LFS for *.pt files
 └── requirements.txt
 ```
 
 ---
 
 ## Run Commands
+
+### Local Development
 
 **Terminal 1: Backend (FastAPI)**
 ```powershell
@@ -95,6 +105,10 @@ python app.py
 |--------|-----------|------|---------|
 | Backend | FastAPI | 8000 | ML model, RAG pipeline, API |
 | Frontend | Flask | 3000 | Serves UI, proxies to backend |
+
+### Production (Railway)
+
+Both services deploy automatically on git push.
 
 ---
 
@@ -128,14 +142,14 @@ class QuantumRAGPipeline:
 
 ---
 
-## Architecture (December 26, 2025)
+## Architecture
 
 ### Two LLM Modes
 
 | Mode | LLM | Speed | Purpose |
 |------|-----|-------|---------|
 | Production | Groq API | ~1-2s | Fast UX |
-| Demo | Custom 125.8M | ~35-37s | Prove ML skills |
+| Demo | Custom 125.8M | ~50-80s | Prove ML skills |
 
 **Implementation Order:** Custom model first, Groq added later.
 
@@ -253,7 +267,7 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Create `backend/app/config.py` | ✅ Done | Env vars, model paths |
 | Create `backend/app/main.py` | ✅ Done | Endpoints, lazy loading |
 | Implement lazy model loading | ✅ Done | 5 min idle timeout |
-| Test `/query` endpoint | ✅ Done | 40-90s response time |
+| Test `/query` endpoint | ✅ Done | 50-80s response time |
 | Suggested question feature | ✅ Done | From retrieved results |
 
 ### Phase 4: Frontend (Flask + Jinja)
@@ -263,23 +277,35 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Create Flask app | ✅ Done | Proxies to backend API |
 | Welcome screen | ✅ Done | Atom animation, 5 starter questions |
 | Chat interface | ✅ Done | User/AI message bubbles |
-| Loading indicator | ✅ Done | Rotating messages + quantum facts |
+| Loading indicator | ✅ Done | Rotating messages + GIF |
 | Free-tier disclaimer | ✅ Done | 40-90s warning |
 | Suggested follow-up button | ✅ Done | Clickable next question |
+
+### Phase 5: Deployment (Railway)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create Railway project | ✅ Done | Hobby plan ($5/month) |
+| Configure backend service | ✅ Done | Dockerfile, env vars |
+| Configure frontend service | ✅ Done | Dockerfile, BACKEND_URL |
+| Set up Git LFS | ✅ Done | Model pulled during build |
+| Fix tokenizers version | ✅ Done | 0.15.0 → 0.22.1 |
+| Fix gunicorn timeout | ✅ Done | 30s → 600s |
+| Test production endpoints | ✅ Done | Working end-to-end |
 
 ---
 
 ## What Is Next
 
-### Phase 5: Deployment
+### Future Improvements
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Deploy to Railway | High | ⬜ Pending |
-| Set spending caps | High | ⬜ Pending |
-| Test production endpoints | High | ⬜ Pending |
-| Add Groq integration | Medium | ⬜ Pending (later) |
-| Add demo mode toggle | Medium | ⬜ Pending (later) |
+| Add Groq integration | Medium | ⬜ Pending |
+| Add demo mode toggle | Medium | ⬜ Pending |
+| Implement response caching | Low | ⬜ Pending |
+| Add request queuing | Low | ⬜ Pending |
+| Set up monitoring/alerting | Low | ⬜ Pending |
 
 ---
 
@@ -297,7 +323,7 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 6. **Lazy loading saves cost.** ~$2-3/month vs $6-8/month always loaded.
 
-7. **Custom model inference:** ~35-37s per question on CPU.
+7. **Custom model inference:** ~50-80s per question on Railway CPU.
 
 8. **HPC battery test:** 480 tests in 5.8 minutes on H100 (vs ~280 min on CPU).
 
@@ -305,6 +331,12 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 10. **Flask + Jinja frontend.** Simpler than React, single Python file with Jinja templates.
 
+11. **Git LFS requires explicit pull in Docker.** Railway doesn't auto-pull LFS files.
+
+12. **Tokenizers version must match.** Training used 0.22.1, deployment initially had 0.15.0.
+
+13. **Gunicorn default timeout (30s) too short.** Set to 600s for model loading + inference.
+
 ---
 
-*Document version: 20.0*
+*Document version: 21.0*

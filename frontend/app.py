@@ -31,22 +31,17 @@ def query():
     """Proxy query requests to the backend API."""
     try:
         data = request.get_json()
-        target_url = f"{BACKEND_URL}/query"
-        print(f"DEBUG: BACKEND_URL = {BACKEND_URL}")
-        print(f"DEBUG: Calling {target_url}")
         response = requests.post(
-            target_url,
+            f"{BACKEND_URL}/query",
             json=data,
-            timeout=120
+            timeout=300  # 5 min timeout for model loading + generation
         )
-        print(f"DEBUG: Response status = {response.status_code}")
         return jsonify(response.json()), response.status_code
     except requests.exceptions.Timeout:
         return jsonify({"error": "Request timed out. Please try again."}), 504
     except requests.exceptions.ConnectionError:
         return jsonify({"error": "Cannot connect to backend. Is it running?"}), 503
     except Exception as e:
-        print(f"DEBUG: Exception = {e}")
         return jsonify({"error": str(e)}), 500
 
 

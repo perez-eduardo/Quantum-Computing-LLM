@@ -2,9 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Force rebuild v2
-RUN echo "rebuild trigger v2"
-
 RUN apt-get update && apt-get install -y libpq-dev git git-lfs && rm -rf /var/lib/apt/lists/*
 
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu

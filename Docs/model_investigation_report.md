@@ -1,7 +1,7 @@
 # Model Investigation Report
 
 **Date:** December 21, 2025
-**Updated:** December 26, 2025
+**Updated:** December 27, 2025
 **Purpose:** Document findings from model training, evaluation, and parameter tuning
 
 ---
@@ -15,16 +15,27 @@
 **Backend Classes:** ✅ COMPLETE (Retriever, QuantumInference, Pipeline)
 **FastAPI App:** ✅ COMPLETE (lazy loading, suggested questions)
 **Frontend:** ✅ COMPLETE (Flask + Jinja)
+**Deployment:** ✅ COMPLETE (Railway, live)
 
 ---
 
-## Architecture (December 26, 2025)
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://quantum-computing-llm.up.railway.app |
+| Backend | https://quantum-computing-llm-backend.up.railway.app |
+| API Docs | https://quantum-computing-llm-backend.up.railway.app/docs |
+
+---
+
+## Architecture
 
 ### Two LLM Modes (Implementation Order)
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| Custom | Custom 125.8M | ~35-37s | ✅ Implemented |
+| Custom | Custom 125.8M | ~50-80s | ✅ Deployed |
 | Production | Groq API | ~1-2s | ⬜ Add later |
 
 Custom model uses lazy loading to save cost (~$2-3/month vs $6-8/month).
@@ -213,13 +224,13 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ## Inference Configuration
 
-### Custom Model
+### Custom Model (Production)
 
 | Setting | Value |
 |---------|-------|
 | Temperature | 0.2 |
 | Top-k | 30 |
-| Speed | ~35-37s |
+| Speed | ~50-80s (Railway CPU) |
 | Loading | Lazy (5 min timeout) |
 
 ### Groq API (Later)
@@ -258,10 +269,38 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 - Suggested follow-up button
 
 ### Loading Indicator
-- Animated atom with orbiting electrons
+- Animated GIF
 - Rotating status messages (every 3s)
-- Quantum facts (every 8s)
 - Patience reminder
+
+---
+
+## Deployment Details (December 27, 2025)
+
+### Railway Configuration
+
+| Setting | Value |
+|---------|-------|
+| Plan | Hobby ($5/month) |
+| Backend service | quantum-computing-llm-backend |
+| Frontend service | quantum-computing-llm |
+
+### Environment Variables
+
+**Backend:**
+- VOYAGE_API_KEY
+- DATABASE_URL
+
+**Frontend:**
+- BACKEND_URL=https://quantum-computing-llm-backend.up.railway.app
+
+### Deployment Issues Resolved
+
+| Issue | Solution |
+|-------|----------|
+| Git LFS pointer file (130 bytes) | Clone repo + `git lfs pull` in Dockerfile |
+| Tokenizers version mismatch | Updated 0.15.0 → 0.22.1 |
+| Gunicorn timeout (30s default) | Set `--timeout 600` in Procfile |
 
 ---
 
@@ -277,7 +316,7 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 
 5. **Extraction function matters.** rfind() grabbed wrong answer, find() fixed it.
 
-6. **Custom model inference:** ~35-37s per question (improved from 40-45s estimate).
+6. **Custom model inference:** ~50-80s per question on Railway CPU.
 
 7. **Lazy loading saves cost.** Load on demand, unload after idle.
 
@@ -291,7 +330,13 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 
 12. **Flask + Jinja is simpler than React.** Single Python file, no npm/node needed.
 
+13. **Git LFS needs explicit pull.** Railway doesn't auto-pull LFS files during build.
+
+14. **Tokenizers version must match.** Training and deployment must use same version.
+
+15. **Gunicorn timeout must exceed response time.** Set 10x expected for safety.
+
 ---
 
-*Document version: 17.0*
-*Last updated: December 26, 2025*
+*Document version: 18.0*
+*Last updated: December 27, 2025*

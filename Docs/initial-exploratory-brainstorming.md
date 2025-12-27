@@ -1,6 +1,6 @@
 # Initial Exploratory Brainstorming: Next LLM Project Stack
 
-**Date:** December 20, 2025 (Updated December 26, 2025)
+**Date:** December 20, 2025 (Updated December 27, 2025)
 **Project:** Quantum Computing LLM  
 **Purpose:** Portfolio demonstration piece  
 **Expected Traffic:** Minimal (recruiters, students)
@@ -27,7 +27,7 @@ Need a stack that is:
 
 | Mode | LLM | Speed | Status |
 |------|-----|-------|--------|
-| Custom | Custom 125.8M | ~35-37s | ✅ Implemented |
+| Custom | Custom 125.8M | ~50-80s | ✅ Deployed |
 | Production | Groq API | ~1-2s | ⬜ Add later |
 
 ### Stack
@@ -37,12 +37,23 @@ Need a stack that is:
 | **Frontend** | Flask + Jinja | $0 | Port 3000 |
 | **Backend** | FastAPI | $0 | Port 8000 |
 | **Hosting** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Custom)** | Custom 125.8M | $0 | Lazy loaded, ~35-37s |
+| **LLM (Custom)** | Custom 125.8M | $0 | Lazy loaded, ~50-80s |
 | **LLM (Production)** | Groq API | $0 | Free tier (add later) |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
 
 **Total: ~$5/month** (within $12 budget)
+
+---
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://quantum-computing-llm.up.railway.app |
+| Backend | https://quantum-computing-llm-backend.up.railway.app |
+| API Docs | https://quantum-computing-llm-backend.up.railway.app/docs |
+| Health Check | https://quantum-computing-llm-backend.up.railway.app/health |
 
 ---
 
@@ -55,7 +66,7 @@ Quantum-Computing-LLM/
 │
 ├── training/
 │   ├── model/
-│   │   ├── final_model.pt              # 125.8M params
+│   │   ├── final_model.pt              # 125.8M params (Git LFS)
 │   │   └── config.json
 │   ├── tokenizer/
 │   │   └── tokenizer.json              # 16K vocab BPE
@@ -63,24 +74,29 @@ Quantum-Computing-LLM/
 │       └── model.py                    # QuantumLLM architecture
 │
 ├── backend/
-│   ├── scripts/                        # ✅ Existing utilities
+│   ├── Dockerfile                      # CPU PyTorch, Git LFS
+│   ├── Procfile
+│   ├── scripts/
 │   │   ├── retrieval.py                # Retriever class
 │   │   ├── inference.py                # QuantumInference class
 │   │   └── pipeline.py                 # QuantumRAGPipeline class
-│   └── app/                            # ✅ FastAPI app
+│   └── app/
 │       ├── __init__.py
 │       ├── config.py                   # Environment variables
 │       └── main.py                     # Endpoints, lazy loading
 │
-├── frontend/                           # ✅ Flask app
-│   ├── app.py                          # Flask server (port 3000)
-│   ├── requirements.txt                # flask, requests
+├── frontend/
+│   ├── Dockerfile
+│   ├── Procfile                        # gunicorn --timeout 600
+│   ├── app.py                          # Flask server
+│   ├── requirements.txt
 │   ├── static/
-│   │   └── style.css                   # All styles
+│   │   ├── style.css
+│   │   └── loading.gif
 │   └── templates/
 │       └── index.html                  # Jinja template with JS
 │
-└── .env                                # API keys
+└── .env                                # API keys (local only)
 ```
 
 ---
@@ -140,7 +156,7 @@ class QuantumRAGPipeline:
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                          ↓
-                                                              Custom model (implemented)
+                                                              Custom model (deployed)
                                                               Groq API (later)
 ```
 
@@ -174,7 +190,7 @@ Recruiters can toggle "Demo Mode" to see the trained model in action.
 | Top-k | 30 |
 | Pass Rate | 100% |
 | Keyword Score | 76-80% |
-| Inference time | ~35-37s |
+| Inference time | ~50-80s (Railway CPU) |
 
 ### Parameter Tuning (December 26, 2025)
 
@@ -194,8 +210,6 @@ Battery test on HPC: 24 combinations × 20 questions = 480 tests in 5.8 minutes.
 | **Lazy load + timeout** | ~200MB idle | **~$2-3/month** |
 
 Model loads on first request, unloads after 5 min idle.
-
-Cold start adds ~5s (negligible vs 35s inference).
 
 ---
 
@@ -222,7 +236,7 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 | Setting | Value |
 |---------|-------|
 | Parameters | 125.8M |
-| Speed | ~35-37s per response |
+| Speed | ~50-80s per response |
 | temp | 0.2 |
 | top_k | 30 |
 
@@ -270,9 +284,8 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 - Suggested follow-up button
 
 ### Loading Indicator
-- Animated atom with orbiting electrons
+- Animated GIF
 - Rotating status messages (every 3s)
-- Quantum facts (every 8s)
 - Patience reminder
 
 ---
@@ -290,6 +303,17 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 **Budget:** $12/month
 **Actual:** ~$5/month
 **Headroom:** ~$7/month
+
+---
+
+## Deployment Issues Resolved (December 27, 2025)
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Model file 130 bytes | Git LFS pointer not pulled | Clone repo + `git lfs pull` in Dockerfile |
+| Tokenizer error | Version mismatch (0.15.0 vs 0.22.1) | Updated requirements.txt |
+| 502 errors | Gunicorn 30s default timeout | Set `--timeout 600` in Procfile |
+| Silent crashes | No logging | Added print statements (later removed) |
 
 ---
 
@@ -317,7 +341,13 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 11. **Flask + Jinja is simpler than React.** Single Python file, no npm/node needed.
 
+12. **Git LFS needs explicit pull in Docker.** Railway doesn't auto-pull LFS files.
+
+13. **Tokenizers version must match training.** Caused cryptic deserialization errors.
+
+14. **Gunicorn timeout must exceed response time.** 30s default too short for ML inference.
+
 ---
 
-*Document version: 15.0*
-*Last updated: December 26, 2025*
+*Document version: 16.0*
+*Last updated: December 27, 2025*
