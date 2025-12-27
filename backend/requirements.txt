@@ -6,3 +6,4 @@ voyageai==0.2.1
 tokenizers==0.22.1
 python-dotenv==1.0.0
 pydantic==2.5.3
+groq>=0.11.0

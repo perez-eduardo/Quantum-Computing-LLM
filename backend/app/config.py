@@ -14,20 +14,26 @@ load_dotenv(PROJECT_ROOT / ".env")
 # API Keys
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Model paths
 MODEL_PATH = PROJECT_ROOT / "training" / "model" / "final_model.pt"
 TOKENIZER_PATH = PROJECT_ROOT / "training" / "tokenizer" / "tokenizer.json"
 
-# Model settings
+# Custom model settings
 MODEL_TEMPERATURE = 0.2
 MODEL_TOP_K = 30
 MODEL_MAX_NEW_TOKENS = 150
 
-# Lazy loading settings
+# Groq settings
+GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
+GROQ_TEMPERATURE = 0.2
+GROQ_MAX_TOKENS = 300
+
+# Lazy loading settings (custom model only)
 IDLE_TIMEOUT_SECONDS = 300  # 5 minutes
 
-# Validate required env vars
+
 def validate_config():
     """Check that required environment variables are set."""
     missing = []
@@ -45,4 +51,11 @@ def validate_config():
     if not TOKENIZER_PATH.exists():
         raise FileNotFoundError(f"Tokenizer not found: {TOKENIZER_PATH}")
     
+    return True
+
+
+def validate_groq_config():
+    """Check that Groq API key is set. Called only when using Groq."""
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY not found. Set it in .env to use Groq mode.")
     return True

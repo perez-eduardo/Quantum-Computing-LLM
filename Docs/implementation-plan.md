@@ -6,6 +6,7 @@
 - Design Document: `quantum-computing-assistant-design.md`
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
 - Model Investigation Report: `model_investigation_report.md`
+- Groq Integration Plan: `groq-integration-plan.md`
 
 ---
 
@@ -16,6 +17,7 @@
 **Phase 3:** Backend - ✅ COMPLETE (FastAPI with lazy loading)
 **Phase 4:** Frontend - ✅ COMPLETE (Flask + Jinja)
 **Phase 5:** Deployment - ✅ COMPLETE (Railway, live)
+**Phase 6:** Groq Integration - ✅ COMPLETE (tested locally)
 
 **Live URLs:**
 - Frontend: https://quantum-computing-llm.up.railway.app
@@ -32,7 +34,8 @@ Quantum-Computing-LLM/
 │   ├── implementation-plan.md
 │   ├── initial-exploratory-brainstorming.md
 │   ├── model_investigation_report.md
-│   └── quantum-computing-assistant-design.md
+│   ├── quantum-computing-assistant-design.md
+│   └── groq-integration-plan.md
 │
 ├── training/
 │   ├── model/
@@ -49,15 +52,16 @@ Quantum-Computing-LLM/
 ├── backend/
 │   ├── Dockerfile                      # CPU-only PyTorch, Git LFS pull
 │   ├── Procfile                        # uvicorn startup
-│   ├── requirements.txt                # tokenizers==0.22.1
+│   ├── requirements.txt                # tokenizers==0.22.1, groq>=0.11.0
 │   ├── scripts/
 │   │   ├── retrieval.py                # Retriever class (Voyage + Neon)
-│   │   ├── inference.py                # QuantumInference class
-│   │   └── pipeline.py                 # QuantumRAGPipeline class
+│   │   ├── base_inference.py           # BaseLLM abstract class
+│   │   ├── inference.py                # QuantumInference(BaseLLM)
+│   │   └── groq_inference.py           # GroqInference(BaseLLM)
 │   └── app/
 │       ├── __init__.py
-│       ├── config.py                   # Environment variables
-│       └── main.py                     # Endpoints, lazy loading
+│       ├── config.py                   # Environment variables + Groq config
+│       └── main.py                     # Endpoints, lazy loading, LLM selection
 │
 ├── frontend/
 │   ├── Dockerfile                      # Python 3.11-slim
@@ -83,28 +87,26 @@ Quantum-Computing-LLM/
 
 ## Run Commands
 
-### Local Development
+### Local Development (Docker)
 
-**Terminal 1: Backend (FastAPI)**
 ```powershell
 cd E:\Personal_projects\Quantum-Computing-LLM
-.\venv\Scripts\Activate
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker build -f backend/Dockerfile -t quantum-backend .
+docker run -p 8000:8000 --env-file .env -e PORT=8000 quantum-backend
 ```
 
-**Terminal 2: Frontend (Flask)**
+### Test Commands (PowerShell)
+
 ```powershell
-cd E:\Personal_projects\Quantum-Computing-LLM
-.\venv\Scripts\Activate
-cd frontend
-python app.py
-```
+# Health check
+Invoke-WebRequest -Uri http://localhost:8000/health
 
-| Server | Framework | Port | Purpose |
-|--------|-----------|------|---------|
-| Backend | FastAPI | 8000 | ML model, RAG pipeline, API |
-| Frontend | Flask | 3000 | Serves UI, proxies to backend |
+# Groq mode (fast, ~725ms)
+Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "use_groq": true}'
+
+# Custom model (slow, ~50-80s)
+Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "use_groq": false}'
+```
 
 ### Production (Railway)
 
@@ -123,21 +125,36 @@ class Retriever:
     def get_stats() -> Dict                        # Database statistics
 ```
 
+### BaseLLM (`backend/scripts/base_inference.py`)
+
+```python
+class BaseLLM(ABC):
+    @property
+    def name(self) -> str                          # "groq" or "custom"
+    def generate(context: str, question: str) -> str
+    def extract_answer(generated_text: str) -> str
+```
+
 ### QuantumInference (`backend/scripts/inference.py`)
 
 ```python
-class QuantumInference:
+class QuantumInference(BaseLLM):
     def __init__(model_path, tokenizer_path, device)  # Loads model + tokenizer
-    def generate(prompt, max_new_tokens=150, temperature=0.2, top_k=30) -> str
+    def generate(context, question) -> str         # Builds flat prompt internally
     def extract_answer(generated_text) -> str      # Gets first answer after "Answer:"
+    @property
+    def name(self) -> str                          # Returns "custom"
 ```
 
-### QuantumRAGPipeline (`backend/scripts/pipeline.py`)
+### GroqInference (`backend/scripts/groq_inference.py`)
 
 ```python
-class QuantumRAGPipeline:
-    def __init__(model_path, tokenizer_path, device)  # Creates Retriever + QuantumInference
-    def query(question, top_k_retrieval=5, ...) -> Dict  # Returns answer, sources, suggested_questions
+class GroqInference(BaseLLM):
+    def __init__()                                 # Initializes Groq client
+    def generate(context, question) -> str         # Uses chat completion API
+    def extract_answer(generated_text) -> str      # Returns text as-is (already clean)
+    @property
+    def name(self) -> str                          # Returns "groq"
 ```
 
 ---
@@ -146,20 +163,40 @@ class QuantumRAGPipeline:
 
 ### Two LLM Modes
 
-| Mode | LLM | Speed | Purpose |
-|------|-----|-------|---------|
-| Production | Groq API | ~1-2s | Fast UX |
-| Demo | Custom 125.8M | ~50-80s | Prove ML skills |
+| Mode | LLM | Speed | Use Case |
+|------|-----|-------|----------|
+| Production | Groq API (Llama 3.3 70B) | ~725ms | Fast UX for users |
+| Demo | Custom 125.8M | ~50-80s | Prove ML skills to recruiters |
 
-**Implementation Order:** Custom model first, Groq added later.
+### API Request/Response
+
+**Request:**
+```json
+{
+  "question": "What is a qubit?",
+  "use_groq": true
+}
+```
+
+**Response:**
+```json
+{
+  "answer": "A qubit, short for quantum bit...",
+  "sources": [...],
+  "response_time_ms": 725,
+  "model_loaded_fresh": false,
+  "suggested_question": "can you explain qubits in simple terms?",
+  "llm_used": "groq"
+}
+```
 
 ### Pipeline
 
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
-                                                                         ↓
-                                                              Custom (default for now)
-                                                              Groq (add later)
+                                                                       ↓
+                                                            use_groq=true  → Groq API (~725ms)
+                                                            use_groq=false → Custom model (~50-80s)
 ```
 
 ### Custom Model Config
@@ -170,6 +207,15 @@ User Question → Voyage AI embed → Neon vector search → Build prompt → LL
 | Top-k | 30 |
 | Loading | Lazy (load on first request) |
 | Timeout | Unload after 5 min idle |
+
+### Groq Config
+
+| Parameter | Value |
+|-----------|-------|
+| Model | llama-3.3-70b-versatile |
+| Temperature | 0.2 |
+| Max tokens | 300 |
+| Loading | Always loaded (lightweight client) |
 
 ---
 
@@ -249,7 +295,6 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Test retrieval | ✅ Done | **100% pass rate** |
 | Create Retriever class | ✅ Done | `backend/scripts/retrieval.py` |
 | Create QuantumInference class | ✅ Done | `backend/scripts/inference.py` |
-| Create QuantumRAGPipeline class | ✅ Done | `backend/scripts/pipeline.py` |
 
 ### Custom Model Training
 
@@ -293,16 +338,37 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 | Fix gunicorn timeout | ✅ Done | 30s → 600s |
 | Test production endpoints | ✅ Done | Working end-to-end |
 
+### Phase 6: Groq Integration
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create BaseLLM abstract class | ✅ Done | `backend/scripts/base_inference.py` |
+| Update QuantumInference | ✅ Done | Inherits BaseLLM |
+| Create GroqInference class | ✅ Done | `backend/scripts/groq_inference.py` |
+| Add Groq config | ✅ Done | `backend/app/config.py` |
+| Update API models | ✅ Done | `use_groq`, `llm_used` fields |
+| Add groq dependency | ✅ Done | groq>=0.11.0 |
+| Delete unused pipeline.py | ✅ Done | Was not being used |
+| Test locally with Docker | ✅ Done | 20 queries passed |
+| Add GROQ_API_KEY to Railway | ⬜ Pending | |
+| Deploy to Railway | ⬜ Pending | |
+
 ---
 
 ## What Is Next
+
+### Immediate
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Add GROQ_API_KEY to Railway | High | ⬜ Pending |
+| Deploy Groq integration | High | ⬜ Pending |
+| Add frontend toggle for LLM mode | Medium | ⬜ Pending |
 
 ### Future Improvements
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Add Groq integration | Medium | ⬜ Pending |
-| Add demo mode toggle | Medium | ⬜ Pending |
 | Implement response caching | Low | ⬜ Pending |
 | Add request queuing | Low | ⬜ Pending |
 | Set up monitoring/alerting | Low | ⬜ Pending |
@@ -327,7 +393,7 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 8. **HPC battery test:** 480 tests in 5.8 minutes on H100 (vs ~280 min on CPU).
 
-9. **RAG pipeline classes exist.** Retriever, QuantumInference, QuantumRAGPipeline ready to use.
+9. **RAG pipeline classes exist.** Retriever, QuantumInference, GroqInference ready to use.
 
 10. **Flask + Jinja frontend.** Simpler than React, single Python file with Jinja templates.
 
@@ -337,6 +403,10 @@ Removed IVFFlat index, using exact search. 28K rows searches in ~300ms.
 
 13. **Gunicorn default timeout (30s) too short.** Set to 600s for model loading + inference.
 
+14. **Groq integration works.** ~725ms response time, 20/20 test queries passed.
+
+15. **groq package version matters.** 0.4.2 had httpx proxy issues, 0.11.0+ works.
+
 ---
 
-*Document version: 21.0*
+*Document version: 22.0*

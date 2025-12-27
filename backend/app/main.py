@@ -1,6 +1,6 @@
 """
 FastAPI application for Quantum Computing LLM.
-Custom model with lazy loading (loads on first request, unloads after 5 min idle).
+Supports both custom model (lazy loaded) and Groq API.
 
 Run:
     cd backend
@@ -24,6 +24,7 @@ sys.path.insert(0, str(SCRIPTS_PATH))
 
 from retrieval import Retriever
 from inference import QuantumInference
+from groq_inference import GroqInference
 
 from app.config import (
     MODEL_PATH,
@@ -32,11 +33,16 @@ from app.config import (
     MODEL_TOP_K,
     MODEL_MAX_NEW_TOKENS,
     IDLE_TIMEOUT_SECONDS,
+    GROQ_API_KEY,
+    GROQ_MODEL_NAME,
+    GROQ_TEMPERATURE,
+    GROQ_MAX_TOKENS,
     validate_config,
+    validate_groq_config,
 )
 
 
-# Global state for lazy loading
+# Global state for lazy loading (custom model only)
 class ModelState:
     def __init__(self):
         self.inference: Optional[QuantumInference] = None
@@ -46,27 +52,31 @@ class ModelState:
 
 model_state = ModelState()
 retriever: Optional[Retriever] = None
+groq_inference: Optional[GroqInference] = None
 
 
-def get_model() -> QuantumInference:
-    """Get model instance, loading if necessary."""
+def get_custom_model() -> QuantumInference:
+    """Get custom model instance, loading if necessary."""
     if model_state.inference is None:
         if model_state.loading:
             raise HTTPException(status_code=503, detail="Model is loading, please wait")
         
         model_state.loading = True
         try:
-            print(f"Loading model from {MODEL_PATH}...")
+            print(f"Loading custom model from {MODEL_PATH}...")
             start = time.time()
             model_state.inference = QuantumInference(
                 model_path=str(MODEL_PATH),
                 tokenizer_path=str(TOKENIZER_PATH),
-                device="cpu"
+                device="cpu",
+                temperature=MODEL_TEMPERATURE,
+                top_k=MODEL_TOP_K,
+                max_new_tokens=MODEL_MAX_NEW_TOKENS
             )
             elapsed = time.time() - start
-            print(f"Model loaded in {elapsed:.1f}s")
+            print(f"Custom model loaded in {elapsed:.1f}s")
         except Exception as e:
-            print(f"Model load failed: {type(e).__name__}: {e}")
+            print(f"Custom model load failed: {type(e).__name__}: {e}")
             raise
         finally:
             model_state.loading = False
@@ -75,23 +85,39 @@ def get_model() -> QuantumInference:
     return model_state.inference
 
 
-def unload_model():
-    """Unload model to free memory."""
+def get_groq_model() -> GroqInference:
+    """Get Groq instance (singleton, always available)."""
+    global groq_inference
+    
+    if groq_inference is None:
+        validate_groq_config()
+        groq_inference = GroqInference(
+            api_key=GROQ_API_KEY,
+            model=GROQ_MODEL_NAME,
+            temperature=GROQ_TEMPERATURE,
+            max_tokens=GROQ_MAX_TOKENS
+        )
+    
+    return groq_inference
+
+
+def unload_custom_model():
+    """Unload custom model to free memory."""
     if model_state.inference is not None:
-        print("Unloading model due to idle timeout...")
+        print("Unloading custom model due to idle timeout...")
         model_state.inference = None
         model_state.last_access = None
 
 
 async def idle_checker():
-    """Background task to unload model after idle timeout."""
+    """Background task to unload custom model after idle timeout."""
     while True:
         await asyncio.sleep(60)  # Check every minute
         
         if model_state.inference is not None and model_state.last_access is not None:
             idle_time = time.time() - model_state.last_access
             if idle_time > IDLE_TIMEOUT_SECONDS:
-                unload_model()
+                unload_custom_model()
 
 
 def text_similarity(a: str, b: str) -> float:
@@ -153,6 +179,16 @@ def get_suggested_question(
     return candidates[0]["question"]
 
 
+def build_context(results: List[dict], top_k: int = 3) -> str:
+    """Build context string from retrieved Q&A pairs."""
+    context_parts = []
+    for r in results[:top_k]:
+        q = r["question"]
+        a = r["answer"][:300]
+        context_parts.append(f"Q: {q} A: {a}")
+    return " ".join(context_parts)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
@@ -166,6 +202,12 @@ async def lifespan(app: FastAPI):
     retriever = Retriever()
     print("Retriever initialized")
     
+    # Check Groq availability
+    if GROQ_API_KEY:
+        print("Groq API key found, Groq mode available")
+    else:
+        print("Groq API key not found, Groq mode disabled")
+    
     # Start idle checker background task
     task = asyncio.create_task(idle_checker())
     
@@ -173,14 +215,14 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     task.cancel()
-    unload_model()
+    unload_custom_model()
     print("API shutdown complete")
 
 
 app = FastAPI(
     title="Quantum Computing LLM API",
-    description="RAG-powered quantum computing Q&A with custom 125.8M parameter model",
-    version="1.0.0",
+    description="RAG-powered quantum computing Q&A with custom model and Groq API",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -188,6 +230,7 @@ app = FastAPI(
 # Request/Response models
 class QueryRequest(BaseModel):
     question: str
+    use_groq: bool = False
 
 
 class Source(BaseModel):
@@ -202,12 +245,14 @@ class QueryResponse(BaseModel):
     response_time_ms: int
     model_loaded_fresh: bool
     suggested_question: Optional[str]
+    llm_used: str
 
 
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     idle_seconds: Optional[int]
+    groq_available: bool
 
 
 # Endpoints
@@ -222,6 +267,7 @@ async def health_check():
         status="ok",
         model_loaded=model_state.inference is not None,
         idle_seconds=idle_seconds,
+        groq_available=bool(GROQ_API_KEY),
     )
 
 
@@ -241,25 +287,22 @@ async def query(request: QueryRequest):
         raise HTTPException(status_code=404, detail="No relevant context found")
     
     # Step 2: Build context from top 3 results
-    context_parts = []
-    for r in results[:3]:
-        q = r["question"]
-        a = r["answer"][:300]
-        context_parts.append(f"Q: {q} A: {a}")
-    context = " ".join(context_parts)
+    context = build_context(results, top_k=3)
     
-    # Step 3: Build prompt
-    prompt = f"Context: {context} Question: {request.question} Answer:"
+    # Step 3: Select LLM and generate
+    if request.use_groq:
+        try:
+            llm = get_groq_model()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        model_loaded_fresh = False  # Groq is always ready
+    else:
+        llm = get_custom_model()
+        model_loaded_fresh = not was_loaded
     
-    # Step 4: Generate answer (loads model if needed)
-    inference = get_model()
-    generated = inference.generate(
-        prompt,
-        max_new_tokens=MODEL_MAX_NEW_TOKENS,
-        temperature=MODEL_TEMPERATURE,
-        top_k=MODEL_TOP_K,
-    )
-    answer = inference.extract_answer(generated)
+    # Step 4: Generate answer
+    generated = llm.generate(context, request.question)
+    answer = llm.extract_answer(generated)
     
     # Step 5: Get suggested follow-up question
     suggested = get_suggested_question(request.question, answer, results)
@@ -280,8 +323,9 @@ async def query(request: QueryRequest):
         answer=answer,
         sources=sources,
         response_time_ms=elapsed_ms,
-        model_loaded_fresh=not was_loaded,
+        model_loaded_fresh=model_loaded_fresh,
         suggested_question=suggested,
+        llm_used=llm.name,
     )
 
 

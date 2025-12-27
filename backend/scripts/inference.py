@@ -1,19 +1,20 @@
 """
-Inference module for Quantum Computing LLM.
-Loads model and tokenizer, generates text from prompts.
+Custom model inference for Quantum Computing LLM.
+Loads 125.8M parameter model and generates text from prompts.
 
 Usage:
     from inference import QuantumInference
     
     inferencer = QuantumInference()
-    response = inferencer.generate("Context: ... Question: What is a qubit? Answer:")
+    answer = inferencer.generate(context, question)
 """
 
-import os
 import sys
 from pathlib import Path
 
 import torch
+
+from base_inference import BaseLLM
 
 # Add training/scripts to path for model import
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -27,14 +28,17 @@ DEFAULT_MODEL_PATH = PROJECT_ROOT / "training" / "model" / "final_model.pt"
 DEFAULT_TOKENIZER_PATH = PROJECT_ROOT / "training" / "tokenizer" / "tokenizer.json"
 
 
-class QuantumInference:
-    """Inference wrapper for Quantum Computing LLM."""
+class QuantumInference(BaseLLM):
+    """Inference wrapper for custom 125.8M parameter Quantum Computing LLM."""
     
     def __init__(
         self,
         model_path: str = None,
         tokenizer_path: str = None,
-        device: str = None
+        device: str = None,
+        temperature: float = 0.2,
+        top_k: int = 30,
+        max_new_tokens: int = 150
     ):
         """
         Initialize inference module.
@@ -43,9 +47,15 @@ class QuantumInference:
             model_path: Path to model checkpoint (.pt file)
             tokenizer_path: Path to tokenizer JSON file
             device: 'cuda' or 'cpu' (auto-detected if None)
+            temperature: Sampling temperature (lower = more focused)
+            top_k: Top-k sampling parameter
+            max_new_tokens: Maximum tokens to generate
         """
         self.model_path = Path(model_path) if model_path else DEFAULT_MODEL_PATH
         self.tokenizer_path = Path(tokenizer_path) if tokenizer_path else DEFAULT_TOKENIZER_PATH
+        self.temperature = temperature
+        self.top_k = top_k
+        self.max_new_tokens = max_new_tokens
         
         # Device selection
         if device:
@@ -58,6 +68,10 @@ class QuantumInference:
         # Load model and tokenizer
         self._load_model()
         self._load_tokenizer()
+    
+    @property
+    def name(self) -> str:
+        return "custom"
     
     def _load_model(self):
         """Load model from checkpoint."""
@@ -84,26 +98,21 @@ class QuantumInference:
         self.tokenizer = Tokenizer.from_file(str(self.tokenizer_path))
         print(f"Tokenizer loaded: {self.tokenizer.get_vocab_size()} tokens")
     
-    def generate(
-        self,
-        prompt: str,
-        max_new_tokens: int = 150,
-        temperature: float = 0.2,
-        top_k: int = 30
-    ) -> str:
+    def generate(self, context: str, question: str) -> str:
         """
-        Generate text from a prompt.
+        Generate answer given RAG context and question.
         
         Args:
-            prompt: Input prompt (should include Context: and Question:)
-            max_new_tokens: Maximum tokens to generate
-            temperature: Sampling temperature (higher = more random)
-            top_k: Top-k sampling parameter
+            context: Retrieved Q&A pairs (e.g., "Q: ... A: ... Q: ... A: ...")
+            question: User's question
         
         Returns:
-            Generated text (full output including prompt)
+            Full generated text including prompt
         """
-        # Tokenize prompt
+        # Build prompt in format model was trained on
+        prompt = f"Context: {context} Question: {question} Answer:"
+        
+        # Tokenize
         tokens = self.tokenizer.encode(prompt).ids
         x = torch.tensor([tokens], device=self.device)
         
@@ -111,9 +120,9 @@ class QuantumInference:
         with torch.no_grad():
             output = self.model.generate(
                 x,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_k=top_k
+                max_new_tokens=self.max_new_tokens,
+                temperature=self.temperature,
+                top_k=self.top_k
             )
         
         # Decode
@@ -124,11 +133,8 @@ class QuantumInference:
         """
         Extract just the answer portion from generated text.
         
-        Prompt format:
-        Context: Q: ... A: ... Q: ... A: ... Question: [user question] Answer:
-        
-        Model generates:
-        [answer] Question: [new Q] Answer: [new A] ...
+        The model generates:
+        Context: ... Question: [user Q] Answer: [answer] Question: [new Q] Answer: [junk]...
         
         We want ONLY the first answer (response to user's question).
         
@@ -142,7 +148,6 @@ class QuantumInference:
         answer_marker = "Answer:"
         
         # Find the FIRST "Question:" (user's question from the prompt)
-        # Context uses "Q:" format, user question uses "Question:" format
         question_idx = generated_text.find(question_marker)
         
         if question_idx == -1:
@@ -184,28 +189,18 @@ def test_inference():
     
     inferencer = QuantumInference()
     
-    # Test with context prompt
-    test_prompts = [
-        {
-            "context": "Q: What is superposition? A: Superposition allows a qubit to exist in multiple states simultaneously until measured.",
-            "question": "What is a qubit?"
-        },
-        {
-            "context": "Q: What is a quantum gate? A: A quantum gate is a basic operation that manipulates qubits.",
-            "question": "What is a quantum circuit?"
-        }
-    ]
+    # Test with context
+    context = "Q: What is superposition? A: Superposition allows a qubit to exist in multiple states simultaneously until measured."
+    question = "What is a qubit?"
     
-    for i, test in enumerate(test_prompts, 1):
-        prompt = f"Context: {test['context']} Question: {test['question']} Answer:"
-        
-        print(f"\n--- Test {i} ---")
-        print(f"Question: {test['question']}")
-        
-        generated = inferencer.generate(prompt)
-        answer = inferencer.extract_answer(generated)
-        
-        print(f"Answer: {answer[:300]}")
+    print(f"\nContext: {context[:80]}...")
+    print(f"Question: {question}")
+    
+    generated = inferencer.generate(context, question)
+    answer = inferencer.extract_answer(generated)
+    
+    print(f"Answer: {answer[:300]}")
+    print(f"LLM used: {inferencer.name}")
 
 
 if __name__ == "__main__":

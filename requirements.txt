@@ -21,3 +21,6 @@ pydantic==2.5.3
 # Frontend
 flask==3.0.0
 requests==2.31.0
+
+
+groq>=0.11.0
