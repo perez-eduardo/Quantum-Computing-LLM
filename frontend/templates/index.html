@@ -269,6 +269,15 @@
         let hasMessages = false;
         let selectedModel = 'groq';
         let dropdownOpen = false;
+        let isFirstQuestion = true; // Track cold start
+
+        // Cold start messages (first question only)
+        const COLD_START_STEPS = [
+            { text: "Waking up server", duration: 5 },
+            { text: "Initializing inference engine", duration: 5 },
+            { text: "Connecting to knowledge base", duration: 5 },
+            { text: "Preparing response", duration: 5 }
+        ];
 
         // Pipeline steps for custom model
         const PIPELINE_STEPS = [
@@ -414,6 +423,7 @@
 
                 if (response.ok) {
                     addMessage('ai', data.answer, data.response_time_ms, data.suggested_question, data.llm_used);
+                    isFirstQuestion = false; // Cold start complete
                 } else {
                     addMessage('error', data.error || 'Something went wrong. Please try again.');
                 }
@@ -521,11 +531,24 @@
             loadingDiv.id = 'loading-indicator';
 
             if (selectedModel === 'groq') {
-                loadingDiv.innerHTML = `
-                    <div class="loading__bubble" id="loading-bubble">
-                        <span class="loading__message" id="loading-message">Thinking</span><span class="loading__dots-text" id="loading-dots-text"></span>
-                    </div>
-                `;
+                if (isFirstQuestion) {
+                    // Cold start: show startup sequence
+                    loadingDiv.innerHTML = `
+                        <div class="loading__bubble" id="loading-bubble">
+                            <span class="loading__message" id="loading-message">${COLD_START_STEPS[0].text}</span><span class="loading__dots-text" id="loading-dots-text"></span>
+                        </div>
+                        <div class="loading__patience">
+                            First request takes longer while the server wakes up.
+                        </div>
+                    `;
+                } else {
+                    // Normal: just "Thinking..."
+                    loadingDiv.innerHTML = `
+                        <div class="loading__bubble" id="loading-bubble">
+                            <span class="loading__message" id="loading-message">Thinking</span><span class="loading__dots-text" id="loading-dots-text"></span>
+                        </div>
+                    `;
+                }
             } else {
                 loadingDiv.innerHTML = `
                     <div class="loading__bubble" id="loading-bubble">
@@ -584,6 +607,36 @@
                 }
             }, 400);
 
+            // Cold start sequence for first Groq question
+            if (selectedModel === 'groq' && isFirstQuestion) {
+                let elapsed = 0;
+                
+                COLD_START_STEPS.forEach((step, index) => {
+                    if (index === 0) return;
+                    
+                    elapsed += COLD_START_STEPS[index - 1].duration * 1000;
+                    
+                    const timeout = setTimeout(() => {
+                        const messageEl = document.getElementById('loading-message');
+                        const dotsEl = document.getElementById('loading-dots-text');
+                        
+                        if (messageEl) {
+                            messageEl.style.opacity = '0';
+                            if (dotsEl) dotsEl.style.opacity = '0';
+                            
+                            setTimeout(() => {
+                                messageEl.textContent = step.text;
+                                messageEl.style.opacity = '1';
+                                if (dotsEl) dotsEl.style.opacity = '1';
+                            }, 400);
+                        }
+                    }, elapsed);
+                    
+                    stepTimeouts.push(timeout);
+                });
+            }
+
+            // Pipeline steps for custom model
             if (selectedModel === 'custom') {
                 let elapsed = 0;
                 
