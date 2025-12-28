@@ -5,36 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantum Computing Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='8' fill='%2300b4d8'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(60 50 50)'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(120 50 50)'/%3E%3C/svg%3E">
 </head>
 <body>
     <div class="app">
         <header class="header">
             <h1>Quantum Computing Assistant</h1>
-            <p>Powered by a custom 125.8M parameter transformer</p>
+            
+            <!-- Custom dropdown -->
+            <div class="model-selector" id="model-selector">
+                <button class="model-selector__button" id="model-button" onclick="toggleDropdown()">
+                    <span class="model-selector__label" id="model-label">Groq Model</span>
+                    <svg class="model-selector__arrow" width="12" height="12" viewBox="0 0 12 12">
+                        <path fill="currentColor" d="M2 4l4 4 4-4"/>
+                    </svg>
+                </button>
+                <div class="model-selector__dropdown" id="model-dropdown">
+                    <div class="model-selector__option" onclick="selectModel('groq')">
+                        <div class="model-selector__option-label">Groq Model</div>
+                        <div class="model-selector__option-desc">Fast responses (~1-2 seconds)</div>
+                    </div>
+                    <div class="model-selector__option" onclick="selectModel('custom')">
+                        <div class="model-selector__option-label">Custom Model</div>
+                        <div class="model-selector__option-desc">Slow responses (~40-90 seconds)</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="header__subtitle" id="header-subtitle">Powered by Llama 3.3 70B via Groq</p>
+            
+            <div class="header__links">
+                <a href="#" class="header__link" onclick="openModal('model-info-modal'); return false;">
+                    <i class="fa-solid fa-circle-info"></i> Learn about models
+                </a>
+                <span class="header__link-divider">|</span>
+                <a href="#" class="header__link" onclick="openModal('about-modal'); return false;">
+                    <i class="fa-solid fa-user"></i> About
+                </a>
+            </div>
         </header>
 
         <div class="chat" id="chat">
             <!-- Welcome screen (shown initially) -->
             <div class="welcome" id="welcome">
                 <div class="welcome__icon">
-                    <div class="atom">
-                        <div class="atom__nucleus"></div>
-                        <div class="atom__orbit atom__orbit--1"></div>
-                        <div class="atom__orbit atom__orbit--2"></div>
-                        <div class="atom__orbit atom__orbit--3"></div>
-                    </div>
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="welcome__logo">
                 </div>
                 
-                <h2 class="welcome__title">Welcome!</h2>
+                <h2 class="welcome__title">Ask me anything about quantum computing</h2>
                 
                 <p class="welcome__text">
-                    Ask me anything about quantum computing. I'm here to help explain 
-                    concepts like qubits, superposition, entanglement, and more.
+                    I can help explain concepts like qubits, superposition, 
+                    entanglement, quantum gates, and more.
                 </p>
 
-                <div class="welcome__disclaimer">
-                    <strong>⚠️ Please note:</strong> This app runs on a free-tier server with a 
-                    custom 125.8M parameter model running on CPU. Response times are typically 
+                <p class="welcome__cold-start">
+                    <i class="fa-solid fa-clock"></i> First question may take 10-15 seconds due to server startup.
+                </p>
+
+                <div class="welcome__disclaimer" id="welcome-disclaimer" style="display: none;">
+                    <strong>⚠️ Please note:</strong> Custom model runs on a free-tier server with a 
+                    125.8M parameter model on CPU. Response times are typically 
                     <strong>40-90 seconds</strong>. Thank you for your patience!
                 </div>
 
@@ -56,8 +88,9 @@
 
         <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)">
             <div class="input-bar__loader" id="input-loader">
-                <img src="{{ url_for('static', filename='loading.gif') }}" alt="Loading" class="loading__gif" id="loading-gif">
-                <canvas class="loading__canvas" id="loading-canvas" style="display: none;"></canvas>
+                <video class="loading__video" id="loading-video" muted loop playsinline>
+                    <source src="{{ url_for('static', filename='loading.webm') }}" type="video/webm">
+                </video>
             </div>
             <div class="input-bar__row">
                 <input
@@ -72,13 +105,172 @@
         </form>
     </div>
 
+    <!-- Model Info Modal -->
+    <div class="modal" id="model-info-modal" onclick="closeModalOnBackdrop(event, 'model-info-modal')">
+        <div class="modal__content">
+            <button class="modal__close" onclick="closeModal('model-info-modal')">&times;</button>
+            <h2 class="modal__title">About the Models</h2>
+            
+            <div class="modal__section">
+                <h3 class="modal__section-title">
+                    <i class="fa-solid fa-bolt"></i> Groq Model
+                </h3>
+                <p class="modal__text">
+                    Uses <strong>Llama 3.3 70B Versatile</strong> hosted on Groq's ultra-fast inference platform. 
+                    Groq's custom LPU (Language Processing Unit) hardware delivers responses in 1-2 seconds.
+                </p>
+                <ul class="modal__list">
+                    <li>70 billion parameters</li>
+                    <li>Cloud-based inference</li>
+                    <li>State-of-the-art open model</li>
+                    <li>Best for quick, accurate answers</li>
+                </ul>
+            </div>
+            
+            <div class="modal__section">
+                <h3 class="modal__section-title">
+                    <i class="fa-solid fa-microchip"></i> Custom Model
+                </h3>
+                <p class="modal__text">
+                    A <strong>125.8M parameter transformer</strong> I trained from scratch specifically for 
+                    quantum computing Q&A. This demonstrates end-to-end ML engineering skills.
+                </p>
+                <ul class="modal__list">
+                    <li>Custom architecture (RoPE, RMSNorm, SwiGLU)</li>
+                    <li>Trained on 28,071 Q&A pairs</li>
+                    <li>Two-phase training: book pretraining + Q&A fine-tuning</li>
+                    <li>RAG system for knowledge retrieval</li>
+                    <li>Runs on CPU (slower but demonstrates full pipeline)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal" id="about-modal" onclick="closeModalOnBackdrop(event, 'about-modal')">
+        <div class="modal__content modal__content--wide">
+            <button class="modal__close" onclick="closeModal('about-modal')">&times;</button>
+            <h2 class="modal__title">About This Project</h2>
+            
+            <p class="modal__intro">
+                A full-stack ML application showcasing end-to-end machine learning engineering, 
+                from custom model training to production deployment.
+            </p>
+
+            <div class="modal__grid">
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-brain"></i> Custom Model
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>125.8M parameters</strong> trained from scratch</li>
+                        <li>Modern transformer architecture</li>
+                        <li>RoPE positional encoding</li>
+                        <li>RMSNorm layer normalization</li>
+                        <li>SwiGLU activation functions</li>
+                        <li>Custom 16K vocabulary BPE tokenizer</li>
+                        <li>2.20 perplexity, 80.5% keyword accuracy</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-server"></i> Training Infrastructure
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>Oregon State University HPC</strong></li>
+                        <li>NVIDIA H100 GPUs</li>
+                        <li>Two-phase training approach</li>
+                        <li>Phase 1: Book pretraining (17 epochs)</li>
+                        <li>Phase 2: Context Q&A fine-tuning (10 epochs)</li>
+                        <li>480-test parameter optimization battery</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-database"></i> RAG System
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>28,071 Q&A pairs</strong> in knowledge base</li>
+                        <li>Voyage AI embeddings</li>
+                        <li>Neon PostgreSQL + pgvector</li>
+                        <li>100% retrieval accuracy</li>
+                        <li>Semantic similarity search</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-code"></i> Tech Stack
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>Backend:</strong> FastAPI, PyTorch</li>
+                        <li><strong>Frontend:</strong> Flask, Vanilla JS</li>
+                        <li><strong>Database:</strong> Neon PostgreSQL</li>
+                        <li><strong>Embeddings:</strong> Voyage AI</li>
+                        <li><strong>LLM API:</strong> Groq</li>
+                        <li><strong>Hosting:</strong> Railway</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-book"></i> Training Data
+                    </h3>
+                    <ul class="modal__list">
+                        <li>15,000 Claude-generated Q&A pairs</li>
+                        <li>Stack Exchange quantum computing posts</li>
+                        <li>CoT reasoning dataset</li>
+                        <li>620K words from cleaned textbooks</li>
+                        <li>Rigorous data quality verification</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-lightbulb"></i> Key Achievements
+                    </h3>
+                    <ul class="modal__list">
+                        <li>End-to-end ML pipeline</li>
+                        <li>Custom model + RAG integration</li>
+                        <li>Dual-mode architecture</li>
+                        <li>~$8/month operational cost</li>
+                        <li>Production-ready deployment</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="modal__section modal__section--contact">
+                <h3 class="modal__section-title">
+                    <i class="fa-solid fa-envelope"></i> Contact
+                </h3>
+                <p class="modal__text">
+                    Interested in my work? Let's connect!
+                </p>
+                <div class="modal__contact-links">
+                    <a href="https://github.com/YOUR_GITHUB" target="_blank" class="modal__contact-link">
+                        <i class="fa-brands fa-github"></i> GitHub
+                    </a>
+                    <a href="https://linkedin.com/in/YOUR_LINKEDIN" target="_blank" class="modal__contact-link">
+                        <i class="fa-brands fa-linkedin"></i> LinkedIn
+                    </a>
+                    <a href="mailto:YOUR_EMAIL@email.com" class="modal__contact-link">
+                        <i class="fa-solid fa-envelope"></i> Email
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // State
         let isLoading = false;
         let hasMessages = false;
-        let gifShown = false;
+        let selectedModel = 'groq';
+        let dropdownOpen = false;
 
-        // Actual pipeline steps with approximate timings (in seconds)
+        // Pipeline steps for custom model
         const PIPELINE_STEPS = [
             { text: "Embedding your question with Voyage AI", duration: 11 },
             { text: "Searching knowledge base (28,071 Q&A pairs)", duration: 11 },
@@ -96,8 +288,78 @@
         const inputField = document.getElementById('input-field');
         const sendBtn = document.getElementById('send-btn');
         const inputLoader = document.getElementById('input-loader');
-        const loadingGif = document.getElementById('loading-gif');
-        const loadingCanvas = document.getElementById('loading-canvas');
+        const loadingVideo = document.getElementById('loading-video');
+        const modelButton = document.getElementById('model-button');
+        const modelLabel = document.getElementById('model-label');
+        const modelDropdown = document.getElementById('model-dropdown');
+        const headerSubtitle = document.getElementById('header-subtitle');
+        const welcomeDisclaimer = document.getElementById('welcome-disclaimer');
+
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('modal--open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('modal--open');
+            document.body.style.overflow = '';
+        }
+
+        function closeModalOnBackdrop(event, modalId) {
+            if (event.target.classList.contains('modal')) {
+                closeModal(modalId);
+            }
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.modal--open').forEach(modal => {
+                    modal.classList.remove('modal--open');
+                });
+                document.body.style.overflow = '';
+            }
+        });
+
+        // Toggle dropdown
+        function toggleDropdown() {
+            dropdownOpen = !dropdownOpen;
+            modelDropdown.classList.toggle('model-selector__dropdown--open', dropdownOpen);
+            modelButton.classList.toggle('model-selector__button--open', dropdownOpen);
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const selector = document.getElementById('model-selector');
+            if (!selector.contains(event.target) && dropdownOpen) {
+                dropdownOpen = false;
+                modelDropdown.classList.remove('model-selector__dropdown--open');
+                modelButton.classList.remove('model-selector__button--open');
+            }
+        });
+
+        // Select model
+        function selectModel(model) {
+            selectedModel = model;
+            dropdownOpen = false;
+            modelDropdown.classList.remove('model-selector__dropdown--open');
+            modelButton.classList.remove('model-selector__button--open');
+            updateUIForModel();
+        }
+
+        // Update UI elements based on selected model
+        function updateUIForModel() {
+            if (selectedModel === 'groq') {
+                modelLabel.textContent = 'Groq Model';
+                headerSubtitle.textContent = 'Powered by Llama 3.3 70B via Groq';
+                welcomeDisclaimer.style.display = 'none';
+            } else {
+                modelLabel.textContent = 'Custom Model';
+                headerSubtitle.textContent = 'Powered by a custom 125.8M parameter transformer';
+                welcomeDisclaimer.style.display = 'block';
+            }
+        }
 
         // Handle form submission
         function handleSubmit(event) {
@@ -107,13 +369,6 @@
                 sendQuestion(question);
                 inputField.value = '';
             }
-        }
-
-        // Handle suggested question button click
-        function handleSuggestedClick(button, question) {
-            // Hide the button's container
-            button.parentElement.style.display = 'none';
-            sendQuestion(question);
         }
 
         // Hide any suggested buttons that match the question
@@ -130,20 +385,16 @@
         async function sendQuestion(question) {
             if (isLoading) return;
 
-            // Hide any matching suggested buttons
             hideSuggestedButtons(question);
 
-            // Hide welcome, show messages
             if (!hasMessages) {
                 welcome.style.display = 'none';
                 messages.style.display = 'flex';
                 hasMessages = true;
             }
 
-            // Add user message
             addMessage('user', question);
 
-            // Show loading
             setLoading(true);
             const loadingEl = addLoadingIndicator();
 
@@ -151,16 +402,18 @@
                 const response = await fetch('/api/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question })
+                    body: JSON.stringify({ 
+                        question,
+                        use_groq: selectedModel === 'groq'
+                    })
                 });
 
                 const data = await response.json();
 
-                // Remove loading indicator
                 loadingEl.remove();
 
                 if (response.ok) {
-                    addMessage('ai', data.answer, data.response_time_ms, data.suggested_question);
+                    addMessage('ai', data.answer, data.response_time_ms, data.suggested_question, data.llm_used);
                 } else {
                     addMessage('error', data.error || 'Something went wrong. Please try again.');
                 }
@@ -173,17 +426,15 @@
         }
 
         // Add a message to the chat
-        function addMessage(type, content, responseTime = null, suggestedQuestion = null) {
+        function addMessage(type, content, responseTime = null, suggestedQuestion = null, llmUsed = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message message--${type}`;
 
             if (type === 'ai') {
-                // For AI messages, use typing effect
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'message__content';
                 messageDiv.appendChild(contentDiv);
 
-                // Add meta and suggested question containers (hidden until typing done)
                 let metaDiv = null;
                 let suggestedDiv = null;
 
@@ -191,7 +442,13 @@
                     metaDiv = document.createElement('div');
                     metaDiv.className = 'message__meta';
                     metaDiv.style.opacity = '0';
-                    metaDiv.textContent = `Response time: ${(responseTime / 1000).toFixed(1)}s`;
+                    
+                    let metaText = `Response time: ${(responseTime / 1000).toFixed(1)}s`;
+                    if (llmUsed) {
+                        const modelLabelText = llmUsed === 'groq' ? 'Groq' : 'Custom';
+                        metaText += ` · ${modelLabelText}`;
+                    }
+                    metaDiv.textContent = metaText;
                     messageDiv.appendChild(metaDiv);
                 }
 
@@ -200,16 +457,22 @@
                     suggestedDiv.className = 'suggested';
                     suggestedDiv.id = `suggested-${Date.now()}`;
                     suggestedDiv.style.opacity = '0';
-                    suggestedDiv.innerHTML = `<button class="suggested__button" onclick="handleSuggestedClick(this, '${escapeHtml(suggestedQuestion)}')">${escapeHtml(suggestedQuestion)}</button>`;
+                    
+                    const suggestedBtn = document.createElement('button');
+                    suggestedBtn.className = 'suggested__button';
+                    suggestedBtn.textContent = suggestedQuestion;
+                    suggestedBtn.addEventListener('click', function() {
+                        this.parentElement.style.display = 'none';
+                        sendQuestion(suggestedQuestion);
+                    });
+                    suggestedDiv.appendChild(suggestedBtn);
                     messageDiv.appendChild(suggestedDiv);
                 }
 
                 messages.appendChild(messageDiv);
                 scrollToBottom();
 
-                // Type out the content
                 typeText(contentDiv, content, () => {
-                    // Show meta and suggested after typing completes
                     if (metaDiv) {
                         metaDiv.style.transition = 'opacity 0.3s ease';
                         metaDiv.style.opacity = '1';
@@ -218,19 +481,16 @@
                         suggestedDiv.style.transition = 'opacity 0.3s ease';
                         suggestedDiv.style.opacity = '1';
                     }
-                    // Pause GIF after typing is done
-                    pauseGif();
+                    pauseVideo();
                 });
             } else {
-                // For user/error messages, show immediately
                 let html = `<div class="message__content">${escapeHtml(content)}</div>`;
                 messageDiv.innerHTML = html;
                 messages.appendChild(messageDiv);
                 scrollToBottom();
                 
-                // Pause GIF for error messages
                 if (type === 'error') {
-                    pauseGif();
+                    pauseVideo();
                 }
             }
         }
@@ -238,7 +498,7 @@
         // Typing effect function
         function typeText(element, text, onComplete) {
             let index = 0;
-            const speed = 15; // milliseconds per character
+            const speed = 5; // milliseconds per character
 
             function type() {
                 if (index < text.length) {
@@ -260,55 +520,54 @@
             loadingDiv.className = 'loading';
             loadingDiv.id = 'loading-indicator';
 
-            loadingDiv.innerHTML = `
-                <div class="loading__bubble" id="loading-bubble">
-                    <span class="loading__message" id="loading-message">${PIPELINE_STEPS[0].text}</span><span class="loading__dots-text" id="loading-dots-text"></span>
-                </div>
-                <div class="loading__patience">
-                    This typically takes 40-90 seconds on our free-tier CPU server.
-                </div>
-            `;
+            if (selectedModel === 'groq') {
+                loadingDiv.innerHTML = `
+                    <div class="loading__bubble" id="loading-bubble">
+                        <span class="loading__message" id="loading-message">Thinking</span><span class="loading__dots-text" id="loading-dots-text"></span>
+                    </div>
+                `;
+            } else {
+                loadingDiv.innerHTML = `
+                    <div class="loading__bubble" id="loading-bubble">
+                        <span class="loading__message" id="loading-message">${PIPELINE_STEPS[0].text}</span><span class="loading__dots-text" id="loading-dots-text"></span>
+                    </div>
+                    <div class="loading__patience">
+                        This typically takes 40-90 seconds on our free-tier CPU server.
+                    </div>
+                `;
+            }
 
             messages.appendChild(loadingDiv);
             scrollToBottom();
 
-            // Show and play GIF animation
-            showGif();
-            playGif();
+            showVideo();
+            playVideo();
 
-            // Start stepping through pipeline
             startLoadingAnimations();
 
             return loadingDiv;
         }
 
-        // Show the GIF loader area
-        function showGif() {
+        // Show the video loader area
+        function showVideo() {
             inputLoader.classList.add('input-bar__loader--visible');
-            gifShown = true;
         }
 
-        // Play GIF animation (reload to restart, show img, hide canvas)
-        function playGif() {
-            const src = loadingGif.src;
-            loadingGif.src = '';
-            loadingGif.src = src;
-            loadingGif.style.display = 'block';
-            loadingCanvas.style.display = 'none';
+        // Hide the video loader area
+        function hideVideo() {
+            inputLoader.classList.remove('input-bar__loader--visible');
         }
 
-        // Pause GIF animation (capture to canvas, show canvas, hide img)
-        function pauseGif() {
-            if (!gifShown) return;
-            
-            loadingCanvas.width = loadingGif.naturalWidth || loadingGif.width;
-            loadingCanvas.height = loadingGif.naturalHeight || loadingGif.height;
-            
-            const ctx = loadingCanvas.getContext('2d');
-            ctx.drawImage(loadingGif, 0, 0);
-            
-            loadingCanvas.style.display = 'block';
-            loadingGif.style.display = 'none';
+        // Play video animation
+        function playVideo() {
+            loadingVideo.play();
+            loadingVideo.classList.remove('loading__video--paused');
+        }
+
+        // Pause video animation
+        function pauseVideo() {
+            loadingVideo.pause();
+            loadingVideo.classList.add('loading__video--paused');
         }
 
         // Loading animation intervals
@@ -316,36 +575,6 @@
         let dotsInterval = null;
 
         function startLoadingAnimations() {
-            let elapsed = 0;
-            
-            // Schedule each step based on its duration with fade transition
-            PIPELINE_STEPS.forEach((step, index) => {
-                if (index === 0) return; // First step shown immediately
-                
-                elapsed += PIPELINE_STEPS[index - 1].duration * 1000;
-                
-                const timeout = setTimeout(() => {
-                    const messageEl = document.getElementById('loading-message');
-                    const dotsEl = document.getElementById('loading-dots-text');
-                    
-                    if (messageEl) {
-                        // Fade out text only
-                        messageEl.style.opacity = '0';
-                        if (dotsEl) dotsEl.style.opacity = '0';
-                        
-                        // Change text and fade in after fade out completes
-                        setTimeout(() => {
-                            messageEl.textContent = step.text;
-                            messageEl.style.opacity = '1';
-                            if (dotsEl) dotsEl.style.opacity = '1';
-                        }, 400);
-                    }
-                }, elapsed);
-                
-                stepTimeouts.push(timeout);
-            });
-
-            // Animate dots (0, 1, 2, 3, repeat)
             let dotsCount = 0;
             dotsInterval = setInterval(() => {
                 const dotsEl = document.getElementById('loading-dots-text');
@@ -354,6 +583,34 @@
                     dotsCount = (dotsCount + 1) % 4;
                 }
             }, 400);
+
+            if (selectedModel === 'custom') {
+                let elapsed = 0;
+                
+                PIPELINE_STEPS.forEach((step, index) => {
+                    if (index === 0) return;
+                    
+                    elapsed += PIPELINE_STEPS[index - 1].duration * 1000;
+                    
+                    const timeout = setTimeout(() => {
+                        const messageEl = document.getElementById('loading-message');
+                        const dotsEl = document.getElementById('loading-dots-text');
+                        
+                        if (messageEl) {
+                            messageEl.style.opacity = '0';
+                            if (dotsEl) dotsEl.style.opacity = '0';
+                            
+                            setTimeout(() => {
+                                messageEl.textContent = step.text;
+                                messageEl.style.opacity = '1';
+                                if (dotsEl) dotsEl.style.opacity = '1';
+                            }, 400);
+                        }
+                    }, elapsed);
+                    
+                    stepTimeouts.push(timeout);
+                });
+            }
         }
 
         function stopLoadingAnimations() {
@@ -373,7 +630,6 @@
 
             if (!loading) {
                 stopLoadingAnimations();
-                // GIF stays visible, will be paused after typing completes
             }
         }
 
@@ -388,6 +644,9 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // Initialize UI on page load
+        updateUIForModel();
     </script>
 </body>
 </html>
