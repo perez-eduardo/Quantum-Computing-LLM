@@ -776,13 +776,13 @@ body {
 .startup__message {
     font-size: 1.1rem;
     color: #909090;
-    margin-bottom: 8px;
+    display: inline;
 }
 
 .startup__dots {
     font-size: 1.1rem;
     color: #909090;
-    min-height: 24px;
+    display: inline;
 }
 
 .startup__error-icon {
