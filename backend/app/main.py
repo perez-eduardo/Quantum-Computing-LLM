@@ -240,6 +240,8 @@ class Source(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
     answer: str
     sources: List[Source]
     response_time_ms: int
@@ -249,6 +251,8 @@ class QueryResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
     status: str
     model_loaded: bool
     idle_seconds: Optional[int]

@@ -161,6 +161,7 @@
                     <li>Trained on 28,071 Q&A pairs</li>
                     <li>Two-phase training: book pretraining + Q&A fine-tuning</li>
                     <li>RAG system for knowledge retrieval</li>
+                    <li>Model hosted on <a href="https://huggingface.co/eduardoperezstudent/quantum-compute-llm" target="_blank" style="color: #00b4d8;">Hugging Face</a></li>
                     <li>Runs on CPU (slower but demonstrates full pipeline)</li>
                 </ul>
             </div>
@@ -184,7 +185,7 @@
                         <i class="fa-solid fa-brain"></i> Custom Model
                     </h3>
                     <ul class="modal__list">
-                        <li><strong>125.8M parameters</strong> trained from scratch</li>
+                        <li><strong><a href="https://huggingface.co/eduardoperezstudent/quantum-compute-llm" target="_blank" style="color: #00b4d8;">125.8M parameters</a></strong> trained from scratch</li>
                         <li>Modern transformer architecture</li>
                         <li>RoPE positional encoding</li>
                         <li>RMSNorm layer normalization</li>
@@ -231,6 +232,7 @@
                         <li><strong>Database:</strong> Neon PostgreSQL</li>
                         <li><strong>Embeddings:</strong> Voyage AI</li>
                         <li><strong>LLM API:</strong> Groq</li>
+                        <li><strong>Model Hosting:</strong> Hugging Face</li>
                         <li><strong>Hosting:</strong> Railway</li>
                     </ul>
                 </div>
@@ -442,8 +444,8 @@
             const loadingEl = addLoadingIndicator();
 
             try {
-                // Set timeout based on model (30s for Groq, 120s for Custom)
-                const timeout = selectedModel === 'groq' ? 30000 : 120000;
+                // Set timeout based on model (45s for Groq, 120s for Custom)
+                const timeout = selectedModel === 'groq' ? 45000 : 120000;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
