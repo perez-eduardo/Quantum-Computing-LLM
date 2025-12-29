@@ -82,7 +82,7 @@
                 </p>
 
                 <p class="welcome__cold-start">
-                    <i class="fa-solid fa-clock"></i> First question may take 10-15 seconds due to server startup.
+                    <i class="fa-solid fa-clock"></i> Server sleeps after 7 minutes of inactivity. First question or questions after idle periods may take 10-15 seconds while the server wakes up.
                 </p>
 
                 <div class="welcome__disclaimer" id="welcome-disclaimer" style="display: none;">
@@ -291,13 +291,15 @@
         let selectedModel = 'groq';
         let dropdownOpen = false;
         let isFirstQuestion = true; // Track cold start
+        let lastActivityTime = Date.now(); // Track idle time
+        const idleThreshold = 360000; // 6 minutes in ms (server sleeps at 7 min)
 
         // Cold start messages (first question only)
         const COLD_START_STEPS = [
-            { text: "Initializing inference engine", duration: 3 },
-            { text: "Connecting to knowledge base", duration: 3 },
-            { text: "Warming up cache", duration: 3 },
-            { text: "Generating response", duration: 3 }
+            { text: "Waking up server", duration: 4 },
+            { text: "Initializing inference engine", duration: 4 },
+            { text: "Connecting to knowledge base", duration: 4 },
+            { text: "Warming up cache", duration: 4 }
         ];
 
         // Pipeline steps for custom model
@@ -426,17 +428,44 @@
             addMessage('user', question);
 
             setLoading(true);
+            
+            // Check if server might be asleep (idle > 6 min)
+            const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
+            
+            if (isIdle) {
+                // Show wake-up message and ping health first
+                const wakeUpEl = addWakeUpIndicator();
+                
+                const serverAwake = await waitForServerWakeUp();
+                wakeUpEl.remove();
+                
+                if (!serverAwake) {
+                    addMessage('error', 'Server is taking too long to wake up. Please try again in a moment.');
+                    setLoading(false);
+                    return;
+                }
+            }
+            
+            // Now send the actual query
             const loadingEl = addLoadingIndicator();
 
             try {
+                // Set timeout based on model (15s for Groq, 120s for Custom)
+                const timeout = selectedModel === 'groq' ? 15000 : 120000;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
                 const response = await fetch('/api/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         question,
                         use_groq: selectedModel === 'groq'
-                    })
+                    }),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
 
                 const data = await response.json();
 
@@ -444,16 +473,91 @@
 
                 if (response.ok) {
                     addMessage('ai', data.answer, data.response_time_ms, data.suggested_question, data.llm_used);
-                    isFirstQuestion = false; // Cold start complete
+                    isFirstQuestion = false;
+                    lastActivityTime = Date.now(); // Update activity time
                 } else {
                     addMessage('error', data.error || 'Something went wrong. Please try again.');
                 }
             } catch (error) {
                 loadingEl.remove();
-                addMessage('error', 'Failed to connect. Is the backend running?');
+                
+                if (error.name === 'AbortError') {
+                    addMessage('error', 'Request timed out. The server may be busy. Please try again.');
+                } else {
+                    addMessage('error', 'Failed to connect. Please try again.');
+                }
             } finally {
                 setLoading(false);
             }
+        }
+        
+        // Wait for server to wake up by pinging health endpoint
+        async function waitForServerWakeUp() {
+            const maxWaitTime = 30000; // 30 seconds max
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWaitTime) {
+                try {
+                    const response = await fetch('/api/health', {
+                        method: 'GET',
+                        signal: AbortSignal.timeout(3000)
+                    });
+                    
+                    if (response.ok) {
+                        lastActivityTime = Date.now();
+                        return true;
+                    }
+                } catch (error) {
+                    // Continue trying
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            return false;
+        }
+        
+        // Add wake-up loading indicator
+        function addWakeUpIndicator() {
+            const wakeUpDiv = document.createElement('div');
+            wakeUpDiv.className = 'loading';
+            wakeUpDiv.id = 'wakeup-indicator';
+            wakeUpDiv.innerHTML = `
+                <div class="loading__bubble">
+                    <span class="loading__message">Waking up server</span><span class="loading__dots-text" id="wakeup-dots"></span>
+                </div>
+                <div class="loading__patience">
+                    Server was idle and went to sleep. Please wait...
+                </div>
+            `;
+            
+            messages.appendChild(wakeUpDiv);
+            scrollToBottom();
+            
+            showVideo();
+            playVideo();
+            
+            // Start dots animation
+            let dotsCount = 0;
+            const dotsInterval = setInterval(() => {
+                const dotsEl = document.getElementById('wakeup-dots');
+                if (dotsEl) {
+                    dotsEl.textContent = '.'.repeat(dotsCount);
+                    dotsCount = (dotsCount + 1) % 4;
+                }
+            }, 400);
+            
+            // Store interval for cleanup
+            wakeUpDiv.dotsInterval = dotsInterval;
+            
+            // Override remove to clear interval
+            const originalRemove = wakeUpDiv.remove.bind(wakeUpDiv);
+            wakeUpDiv.remove = function() {
+                clearInterval(this.dotsInterval);
+                originalRemove();
+            };
+            
+            return wakeUpDiv;
         }
 
         // Add a message to the chat
@@ -772,6 +876,7 @@
                             startupScreen.style.display = 'none';
                             chatContainer.style.display = 'flex';
                             inputForm.style.display = 'flex';
+                            lastActivityTime = Date.now(); // Server is awake now
                             return;
                         }
                     }
