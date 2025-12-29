@@ -82,7 +82,7 @@
                 </p>
 
                 <p class="welcome__cold-start">
-                    <i class="fa-solid fa-clock"></i> Server sleeps after ~10 minutes of inactivity, so first or idle queries may take 10-15 seconds to wake up.
+                    <i class="fa-solid fa-clock"></i> Server sleeps after ~5 minutes of inactivity, so first or idle queries may take 10-15 seconds to wake up.
                 </p>
 
                 <div class="welcome__disclaimer" id="welcome-disclaimer" style="display: none;">
@@ -292,15 +292,7 @@
         let dropdownOpen = false;
         let isFirstQuestion = true; // Track cold start
         let lastActivityTime = Date.now(); // Track idle time
-        const idleThreshold = 540000; // 9 minutes in ms (server sleeps at ~10 min)
-
-        // Cold start messages (first question only)
-        const COLD_START_STEPS = [
-            { text: "Waking up server", duration: 4 },
-            { text: "Initializing inference engine", duration: 4 },
-            { text: "Connecting to knowledge base", duration: 4 },
-            { text: "Warming up cache", duration: 4 }
-        ];
+        const idleThreshold = 240000; // 4 minutes in ms (server sleeps at ~5 min)
 
         // Pipeline steps for custom model
         const PIPELINE_STEPS = [
@@ -429,8 +421,8 @@
 
             setLoading(true);
             
-            // Check if server might be asleep (idle > 6 min)
-            const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
+            // Check if server might be asleep (idle > 4 min, but not first question)
+            const isIdle = !isFirstQuestion && (Date.now() - lastActivityTime) > idleThreshold;
             
             if (isIdle) {
                 // Show wake-up message and ping health first
@@ -451,7 +443,7 @@
 
             try {
                 // Set timeout based on model (30s for Groq, 120s for Custom)
-                const timeout = selectedModel === 'groq' ? 60000 : 120000;
+                const timeout = selectedModel === 'groq' ? 30000 : 120000;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
@@ -498,20 +490,21 @@
             
             while (Date.now() - startTime < maxWaitTime) {
                 try {
-                    const response = await fetch('/api/health', {
-                        method: 'GET',
-                        signal: AbortSignal.timeout(3000)
-                    });
+                    const response = await Promise.race([
+                        fetch('/api/health', { method: 'GET' }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('timeout')), 5000)
+                        )
+                    ]);
                     
                     if (response.ok) {
                         lastActivityTime = Date.now();
                         return true;
                     }
                 } catch (error) {
-                    // Continue trying
+                    // Timeout or error, wait a bit before retrying
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
-                
-                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
             return false;
@@ -656,24 +649,12 @@
             loadingDiv.id = 'loading-indicator';
 
             if (selectedModel === 'groq') {
-                if (isFirstQuestion) {
-                    // Cold start: show startup sequence
-                    loadingDiv.innerHTML = `
-                        <div class="loading__bubble" id="loading-bubble">
-                            <span class="loading__message" id="loading-message">${COLD_START_STEPS[0].text}</span><span class="loading__dots-text" id="loading-dots-text"></span>
-                        </div>
-                        <div class="loading__patience">
-                            First request takes longer while the server wakes up.
-                        </div>
-                    `;
-                } else {
-                    // Normal: just "Thinking..."
-                    loadingDiv.innerHTML = `
-                        <div class="loading__bubble" id="loading-bubble">
-                            <span class="loading__message" id="loading-message">Thinking</span><span class="loading__dots-text" id="loading-dots-text"></span>
-                        </div>
-                    `;
-                }
+                // Groq: just show "Thinking..."
+                loadingDiv.innerHTML = `
+                    <div class="loading__bubble" id="loading-bubble">
+                        <span class="loading__message" id="loading-message">Thinking</span><span class="loading__dots-text" id="loading-dots-text"></span>
+                    </div>
+                `;
             } else {
                 loadingDiv.innerHTML = `
                     <div class="loading__bubble" id="loading-bubble">
@@ -731,35 +712,6 @@
                     dotsCount = (dotsCount + 1) % 4;
                 }
             }, 400);
-
-            // Cold start sequence for first Groq question
-            if (selectedModel === 'groq' && isFirstQuestion) {
-                let elapsed = 0;
-                
-                COLD_START_STEPS.forEach((step, index) => {
-                    if (index === 0) return;
-                    
-                    elapsed += COLD_START_STEPS[index - 1].duration * 1000;
-                    
-                    const timeout = setTimeout(() => {
-                        const messageEl = document.getElementById('loading-message');
-                        const dotsEl = document.getElementById('loading-dots-text');
-                        
-                        if (messageEl) {
-                            messageEl.style.opacity = '0';
-                            if (dotsEl) dotsEl.style.opacity = '0';
-                            
-                            setTimeout(() => {
-                                messageEl.textContent = step.text;
-                                messageEl.style.opacity = '1';
-                                if (dotsEl) dotsEl.style.opacity = '1';
-                            }, 400);
-                        }
-                    }, elapsed);
-                    
-                    stepTimeouts.push(timeout);
-                });
-            }
 
             // Pipeline steps for custom model
             if (selectedModel === 'custom') {
@@ -832,9 +784,7 @@
         const inputForm = document.getElementById('input-form');
 
         let startupDotsInterval = null;
-        let checkAttempts = 0;
         const maxCheckTime = 10000; // 10 seconds
-        const checkInterval = 1000; // Check every 1 second
 
         function startStartupDots() {
             let count = 0;
@@ -855,7 +805,6 @@
             // Reset to loading state
             startupScreen.style.display = 'flex';
             startupError.style.display = 'none';
-            checkAttempts = 0;
             
             startStartupDots();
             
@@ -863,10 +812,12 @@
             
             while (Date.now() - startTime < maxCheckTime) {
                 try {
-                    const response = await fetch('/api/health', { 
-                        method: 'GET',
-                        signal: AbortSignal.timeout(2000)
-                    });
+                    const response = await Promise.race([
+                        fetch('/api/health', { method: 'GET' }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('timeout')), 3000)
+                        )
+                    ]);
                     
                     if (response.ok) {
                         const data = await response.json();
@@ -881,7 +832,8 @@
                         }
                     }
                 } catch (error) {
-                    // Connection failed, continue trying
+                    // Timeout or connection failed, wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
                 // Update message based on progress
@@ -891,9 +843,6 @@
                 } else if (elapsed > 3000) {
                     startupMessage.textContent = 'Waking up server';
                 }
-                
-                // Wait before next check
-                await new Promise(resolve => setTimeout(resolve, checkInterval));
             }
             
             // Timeout - show error
