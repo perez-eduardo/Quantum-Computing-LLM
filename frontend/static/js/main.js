@@ -156,7 +156,7 @@ async function sendQuestion(question) {
 
     try {
         // Set timeout based on model (45s for Groq, 120s for Custom)
-        const timeout = selectedModel === 'groq' ? 45000 : 120000;
+        const timeout = selectedModel === 'groq' ? 45000 : 300000;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         
@@ -496,7 +496,7 @@ const chatContainer = document.getElementById('chat');
 const inputForm = document.getElementById('input-form');
 
 let startupDotsInterval = null;
-const maxCheckTime = 10000; // 10 seconds
+const maxCheckTime = 30000; // 30 seconds for cold start
 
 function startStartupDots() {
     let count = 0;
@@ -527,7 +527,7 @@ async function checkBackendAvailability() {
             const response = await Promise.race([
                 fetch('/api/health', { method: 'GET' }),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('timeout')), 3000)
+                    setTimeout(() => reject(new Error('timeout')), 10000)
                 )
             ]);
             
