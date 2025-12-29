@@ -82,7 +82,7 @@
                 </p>
 
                 <p class="welcome__cold-start">
-                    <i class="fa-solid fa-clock"></i> Server sleeps after 7 minutes of inactivity. First question or questions after idle periods may take 10-15 seconds while the server wakes up.
+                    <i class="fa-solid fa-clock"></i> Server sleeps after ~10 minutes of inactivity, so first or idle queries may take 10-15 seconds to wake up.
                 </p>
 
                 <div class="welcome__disclaimer" id="welcome-disclaimer" style="display: none;">
@@ -292,7 +292,7 @@
         let dropdownOpen = false;
         let isFirstQuestion = true; // Track cold start
         let lastActivityTime = Date.now(); // Track idle time
-        const idleThreshold = 360000; // 6 minutes in ms (server sleeps at 7 min)
+        const idleThreshold = 540000; // 9 minutes in ms (server sleeps at ~10 min)
 
         // Cold start messages (first question only)
         const COLD_START_STEPS = [
@@ -450,8 +450,8 @@
             const loadingEl = addLoadingIndicator();
 
             try {
-                // Set timeout based on model (15s for Groq, 120s for Custom)
-                const timeout = selectedModel === 'groq' ? 15000 : 120000;
+                // Set timeout based on model (30s for Groq, 120s for Custom)
+                const timeout = selectedModel === 'groq' ? 30000 : 120000;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
