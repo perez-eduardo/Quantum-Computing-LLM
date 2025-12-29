@@ -13,14 +13,15 @@ cd E:\Personal_projects\Quantum-Computing-LLM
 
 ## backend
 cd E:\Personal_projects\Quantum-Computing-LLM
-.\venv\Scripts\Activate
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker build -f backend/Dockerfile -t quantum-backend .
+docker run -p 8000:8000 --env-file .env -e PORT=8000 quantum-backend
+
 
 ## frontend
 cd E:\Personal_projects\Quantum-Computing-LLM
-.\venv\Scripts\Activate
+pip install flask requests
 cd frontend
+set BACKEND_URL=http://localhost:8000
 python app.py
 
 
