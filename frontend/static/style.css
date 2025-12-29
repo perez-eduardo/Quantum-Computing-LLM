@@ -376,7 +376,7 @@ body {
 
 .message--user {
     align-self: flex-end;
-    background-color: #2d5d94;
+    background-color: #0088aa;
     color: #e8e8e8;
     border-bottom-right-radius: 4px;
 }
@@ -527,7 +527,7 @@ body {
 
 .input-bar__button {
     padding: 12px 24px;
-    background-color: #2d5d94;
+    background-color: #00a0c6;
     color: #ffffff;
     border: none;
     border-radius: 24px;
@@ -738,6 +738,84 @@ body {
     background-color: #00b4d8;
     color: #000000;
     box-shadow: 0 0 12px rgba(0, 180, 216, 0.4);
+}
+
+/* ================================
+   STARTUP SCREEN
+   ================================ */
+.startup {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    background-color: #000000;
+    padding: 20px;
+}
+
+.startup__content {
+    text-align: center;
+}
+
+.startup__logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 24px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.startup__message {
+    font-size: 1.1rem;
+    color: #909090;
+    margin-bottom: 8px;
+}
+
+.startup__dots {
+    font-size: 1.1rem;
+    color: #909090;
+    min-height: 24px;
+}
+
+.startup__error-icon {
+    font-size: 3rem;
+    color: #cc4444;
+    margin-bottom: 20px;
+}
+
+.startup--error .startup__message {
+    font-size: 1.3rem;
+    color: #d0d0d0;
+    margin-bottom: 12px;
+}
+
+.startup__error-text {
+    font-size: 0.95rem;
+    color: #707070;
+    margin-bottom: 24px;
+}
+
+.startup__retry-btn {
+    background-color: #00a0c6;
+    color: #ffffff;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.startup__retry-btn:hover {
+    background-color: #00b4d8;
+    box-shadow: 0 0 14px rgba(0, 180, 216, 0.4);
+}
+
+.startup__retry-btn i {
+    margin-right: 8px;
 }
 
 /* ================================

@@ -46,7 +46,28 @@
             </div>
         </header>
 
-        <div class="chat" id="chat">
+        <!-- Startup screen (shown while checking backend) -->
+        <div class="startup" id="startup">
+            <div class="startup__content">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="startup__logo">
+                <div class="startup__message" id="startup-message">Connecting to server</div>
+                <div class="startup__dots" id="startup-dots"></div>
+            </div>
+        </div>
+
+        <!-- Error screen (shown if backend unavailable) -->
+        <div class="startup startup--error" id="startup-error" style="display: none;">
+            <div class="startup__content">
+                <i class="fa-solid fa-triangle-exclamation startup__error-icon"></i>
+                <div class="startup__message">Service Unavailable</div>
+                <div class="startup__error-text">The server is currently unavailable. Please try again later.</div>
+                <button class="startup__retry-btn" onclick="checkBackendAvailability()">
+                    <i class="fa-solid fa-rotate-right"></i> Retry
+                </button>
+            </div>
+        </div>
+
+        <div class="chat" id="chat" style="display: none;">
             <!-- Welcome screen (shown initially) -->
             <div class="welcome" id="welcome">
                 <div class="welcome__icon">
@@ -86,7 +107,7 @@
             <div class="messages" id="messages"></div>
         </div>
 
-        <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)">
+        <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)" style="display: none;">
             <div class="input-bar__loader" id="input-loader">
                 <video class="loading__video" id="loading-video" muted loop playsinline>
                     <source src="{{ url_for('static', filename='loading.webm') }}" type="video/webm">
@@ -273,10 +294,10 @@
 
         // Cold start messages (first question only)
         const COLD_START_STEPS = [
-            { text: "Waking up server", duration: 5 },
-            { text: "Initializing inference engine", duration: 5 },
-            { text: "Connecting to knowledge base", duration: 5 },
-            { text: "Preparing response", duration: 5 }
+            { text: "Waking up server", duration: 4 },
+            { text: "Initializing inference engine", duration: 4 },
+            { text: "Connecting to knowledge base", duration: 4 },
+            { text: "Warming up cache", duration: 4 }
         ];
 
         // Pipeline steps for custom model
@@ -698,8 +719,87 @@
             return div.innerHTML;
         }
 
+        // Backend availability check
+        const startupScreen = document.getElementById('startup');
+        const startupError = document.getElementById('startup-error');
+        const startupMessage = document.getElementById('startup-message');
+        const startupDots = document.getElementById('startup-dots');
+        const chatContainer = document.getElementById('chat');
+        const inputForm = document.getElementById('input-form');
+
+        let startupDotsInterval = null;
+        let checkAttempts = 0;
+        const maxCheckTime = 10000; // 10 seconds
+        const checkInterval = 1000; // Check every 1 second
+
+        function startStartupDots() {
+            let count = 0;
+            startupDotsInterval = setInterval(() => {
+                startupDots.textContent = '.'.repeat(count);
+                count = (count + 1) % 4;
+            }, 400);
+        }
+
+        function stopStartupDots() {
+            if (startupDotsInterval) {
+                clearInterval(startupDotsInterval);
+                startupDotsInterval = null;
+            }
+        }
+
+        async function checkBackendAvailability() {
+            // Reset to loading state
+            startupScreen.style.display = 'flex';
+            startupError.style.display = 'none';
+            checkAttempts = 0;
+            
+            startStartupDots();
+            
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxCheckTime) {
+                try {
+                    const response = await fetch('/api/health', { 
+                        method: 'GET',
+                        signal: AbortSignal.timeout(2000)
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'ok' || data.groq_available) {
+                            // Backend is ready
+                            stopStartupDots();
+                            startupScreen.style.display = 'none';
+                            chatContainer.style.display = 'flex';
+                            inputForm.style.display = 'flex';
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    // Connection failed, continue trying
+                }
+                
+                // Update message based on progress
+                const elapsed = Date.now() - startTime;
+                if (elapsed > 6000) {
+                    startupMessage.textContent = 'Almost there';
+                } else if (elapsed > 3000) {
+                    startupMessage.textContent = 'Waking up server';
+                }
+                
+                // Wait before next check
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+            }
+            
+            // Timeout - show error
+            stopStartupDots();
+            startupScreen.style.display = 'none';
+            startupError.style.display = 'flex';
+        }
+
         // Initialize UI on page load
         updateUIForModel();
+        checkBackendAvailability();
     </script>
 </body>
 </html>
