@@ -71,7 +71,6 @@ async function sendQuestion(question) {
 
     addMessage('user', question);
     setLoading(true);
-    
     const loadingEl = addLoadingIndicator();
 
     try {

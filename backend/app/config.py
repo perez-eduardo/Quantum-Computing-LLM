@@ -1,6 +1,5 @@
 """
-Configuration for Quantum Computing LLM API.
-Groq-only version.
+Configuration module for Quantum Computing LLM API.
 """
 
 import os
@@ -8,17 +7,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# API Keys
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+# Groq settings
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 GROQ_TEMPERATURE = 0.2
 GROQ_MAX_TOKENS = 300
 
 
 def validate_config():
-    """Check required environment variables."""
+    """Check that required environment variables are set."""
     missing = []
     if not VOYAGE_API_KEY:
         missing.append("VOYAGE_API_KEY")
@@ -28,6 +29,6 @@ def validate_config():
         missing.append("GROQ_API_KEY")
     
     if missing:
-        raise ValueError(f"Missing environment variables: {', '.join(missing)}")
+        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
     
     return True
