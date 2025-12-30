@@ -7,6 +7,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-EXPOSE 3000
-
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:3000", "--timeout", "30"]
+CMD gunicorn app:app --bind 0.0.0.0:${PORT:-3000} --timeout 30
