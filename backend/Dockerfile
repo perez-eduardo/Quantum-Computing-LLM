@@ -2,11 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y libpq-dev && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+COPY backend/requirements.txt .
+RUN pip install --no-deps voyageai && pip install -r requirements.txt
 
-EXPOSE 3000
+COPY backend/ ./backend/
 
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:3000", "--timeout", "30"]
+WORKDIR /app/backend
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
