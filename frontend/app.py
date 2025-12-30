@@ -34,7 +34,7 @@ def query():
         response = requests.post(
             f"{BACKEND_URL}/query",
             json=data,
-            timeout=300  # 5 min timeout for model loading + generation
+            timeout=120
         )
         return jsonify(response.json()), response.status_code
     except requests.exceptions.Timeout:
