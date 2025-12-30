@@ -40,9 +40,7 @@
 
         <div class="chat" id="chat" style="display: none;">
             <div class="welcome" id="welcome">
-                <video class="welcome__video loading__video loading__video--paused" id="loading-video" muted loop playsinline>
-                    <source src="{{ url_for('static', filename='images/loading.webm') }}" type="video/webm">
-                </video>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="welcome__logo">
                 <h2 class="welcome__title">Ask me anything about quantum computing</h2>
                 <p class="welcome__text">
                     I can help explain concepts like qubits, superposition, entanglement, quantum gates, and more.
@@ -61,6 +59,11 @@
         </div>
 
         <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)" style="display: none;">
+            <div class="input-bar__loader input-bar__loader--visible" id="input-loader">
+                <video class="loading__video loading__video--paused" id="loading-video" muted loop playsinline>
+                    <source src="{{ url_for('static', filename='images/loading.webm') }}" type="video/webm">
+                </video>
+            </div>
             <div class="input-bar__row">
                 <input type="text" class="input-bar__input" id="input-field" placeholder="Ask a question about quantum computing..." autocomplete="off">
                 <button type="submit" class="input-bar__button" id="send-btn">Send</button>

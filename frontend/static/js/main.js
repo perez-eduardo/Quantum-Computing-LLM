@@ -49,19 +49,17 @@ function hideSuggestedButtons(q) {
 async function sendQuestion(question) {
     if (isLoading) return;
     hideSuggestedButtons(question);
-    const isFirstMessage = !hasMessages;
 
-    if (isFirstMessage) {
-        hasMessages = true;
-        playVideo();
-    } else {
+    if (!hasMessages) {
         welcome.style.display = 'none';
         messages.style.display = 'flex';
+        hasMessages = true;
     }
 
     addMessage('user', question);
     setLoading(true);
-    const loadingEl = isFirstMessage ? null : addLoadingIndicator();
+    playVideo();
+    const loadingEl = addLoadingIndicator();
 
     try {
         const controller = new AbortController();
@@ -76,14 +74,7 @@ async function sendQuestion(question) {
         
         clearTimeout(timeoutId);
         const data = await response.json();
-        if (loadingEl) loadingEl.remove();
-        
-        // First message: transition from welcome to messages
-        if (welcome.style.display !== 'none') {
-            pauseVideo();
-            welcome.style.display = 'none';
-            messages.style.display = 'flex';
-        }
+        loadingEl.remove();
 
         if (response.ok) {
             addMessage('ai', data.answer, data.response_time_ms, data.suggested_question);
@@ -91,15 +82,7 @@ async function sendQuestion(question) {
             addMessage('error', data.error || 'Something went wrong.');
         }
     } catch (error) {
-        if (loadingEl) loadingEl.remove();
-        
-        // First message error: transition from welcome to messages
-        if (welcome.style.display !== 'none') {
-            pauseVideo();
-            welcome.style.display = 'none';
-            messages.style.display = 'flex';
-        }
-        
+        loadingEl.remove();
         addMessage('error', error.name === 'AbortError' ? 'Request timed out.' : 'Failed to connect.');
     } finally {
         setLoading(false);
@@ -172,7 +155,6 @@ function addLoadingIndicator() {
     div.innerHTML = `<div class="loading__bubble"><span class="loading__message">Thinking</span><span class="loading__dots"></span></div>`;
     messages.appendChild(div);
     scrollToBottom();
-    playVideo();
     startDots();
     return div;
 }
