@@ -437,6 +437,7 @@ body {
 .modal__contact-link:hover {
     background-color: #00b4d8;
     color: #000000;
+    box-shadow: 0 0 12px rgba(0, 180, 216, 0.4);
 }
 
 .startup {
