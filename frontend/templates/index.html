@@ -12,41 +12,15 @@
     <div class="app">
         <header class="header">
             <h1>Quantum Computing Assistant</h1>
-            
-            <!-- Custom dropdown -->
-            <div class="model-selector" id="model-selector">
-                <button class="model-selector__button" id="model-button" onclick="toggleDropdown()">
-                    <span class="model-selector__label" id="model-label">Groq Model</span>
-                    <svg class="model-selector__arrow" width="12" height="12" viewBox="0 0 12 12">
-                        <path fill="currentColor" d="M2 4l4 4 4-4"/>
-                    </svg>
-                </button>
-                <div class="model-selector__dropdown" id="model-dropdown">
-                    <div class="model-selector__option" onclick="selectModel('groq')">
-                        <div class="model-selector__option-label">Groq Model</div>
-                        <div class="model-selector__option-desc">Fast responses (~1-2 seconds)</div>
-                    </div>
-                    <div class="model-selector__option" onclick="selectModel('custom')">
-                        <div class="model-selector__option-label">Custom Model</div>
-                        <div class="model-selector__option-desc">Slow responses (~40-90 seconds)</div>
-                    </div>
-                </div>
-            </div>
-
-            <p class="header__subtitle" id="header-subtitle">Powered by Llama 3.3 70B via Groq</p>
-            
+            <p class="header__subtitle">Powered by Llama 3.3 70B via Groq</p>
             <div class="header__links">
-                <a href="#" class="header__link" onclick="openModal('model-info-modal'); return false;">
-                    <i class="fa-solid fa-circle-info"></i> Learn about models
-                </a>
-                <span class="header__link-divider">|</span>
                 <a href="#" class="header__link" onclick="openModal('about-modal'); return false;">
-                    <i class="fa-solid fa-user"></i> About
+                    <i class="fa-solid fa-circle-info"></i> About
                 </a>
             </div>
         </header>
 
-        <!-- Startup screen (shown while checking backend) -->
+        <!-- Startup screen -->
         <div class="startup" id="startup">
             <div class="startup__content">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="startup__logo">
@@ -55,7 +29,7 @@
             </div>
         </div>
 
-        <!-- Error screen (shown if backend unavailable) -->
+        <!-- Error screen -->
         <div class="startup startup--error" id="startup-error" style="display: none;">
             <div class="startup__content">
                 <i class="fa-solid fa-triangle-exclamation startup__error-icon"></i>
@@ -68,29 +42,13 @@
         </div>
 
         <div class="chat" id="chat" style="display: none;">
-            <!-- Welcome screen (shown initially) -->
+            <!-- Welcome screen -->
             <div class="welcome" id="welcome">
-                <div class="welcome__icon">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="welcome__logo">
-                </div>
-                
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="welcome__logo">
                 <h2 class="welcome__title">Ask me anything about quantum computing</h2>
-                
                 <p class="welcome__text">
-                    I can help explain concepts like qubits, superposition, 
-                    entanglement, quantum gates, and more.
+                    I can help explain concepts like qubits, superposition, entanglement, quantum gates, and more.
                 </p>
-
-                <p class="welcome__cold-start">
-                    <i class="fa-solid fa-clock"></i> Server sleeps after ~5 minutes of inactivity, so first or idle queries may take 10-15 seconds to wake up.
-                </p>
-
-                <div class="welcome__disclaimer" id="welcome-disclaimer" style="display: none;">
-                    <strong>⚠️ Please note:</strong> Custom model runs on a free-tier server with a 
-                    125.8M parameter model on CPU. Response times are typically 
-                    <strong>40-90 seconds</strong>. Thank you for your patience!
-                </div>
-
                 <div class="welcome__starters">
                     <p class="welcome__starters-label">Try one of these questions:</p>
                     <div class="welcome__starters-grid">
@@ -103,7 +61,7 @@
                 </div>
             </div>
 
-            <!-- Messages container (hidden initially) -->
+            <!-- Messages container -->
             <div class="messages" id="messages"></div>
         </div>
 
@@ -114,58 +72,10 @@
                 </video>
             </div>
             <div class="input-bar__row">
-                <input
-                    type="text"
-                    class="input-bar__input"
-                    id="input-field"
-                    placeholder="Ask a question about quantum computing..."
-                    autocomplete="off"
-                >
+                <input type="text" class="input-bar__input" id="input-field" placeholder="Ask a question about quantum computing..." autocomplete="off">
                 <button type="submit" class="input-bar__button" id="send-btn">Send</button>
             </div>
         </form>
-    </div>
-
-    <!-- Model Info Modal -->
-    <div class="modal" id="model-info-modal" onclick="closeModalOnBackdrop(event, 'model-info-modal')">
-        <div class="modal__content">
-            <button class="modal__close" onclick="closeModal('model-info-modal')">&times;</button>
-            <h2 class="modal__title">About the Models</h2>
-            
-            <div class="modal__section">
-                <h3 class="modal__section-title">
-                    <i class="fa-solid fa-bolt"></i> Groq Model
-                </h3>
-                <p class="modal__text">
-                    Uses <strong>Llama 3.3 70B Versatile</strong> hosted on Groq's ultra-fast inference platform. 
-                    Groq's custom LPU (Language Processing Unit) hardware delivers responses in 1-2 seconds.
-                </p>
-                <ul class="modal__list">
-                    <li>70 billion parameters</li>
-                    <li>Cloud-based inference</li>
-                    <li>State-of-the-art open model</li>
-                    <li>Best for quick, accurate answers</li>
-                </ul>
-            </div>
-            
-            <div class="modal__section">
-                <h3 class="modal__section-title">
-                    <i class="fa-solid fa-microchip"></i> Custom Model
-                </h3>
-                <p class="modal__text">
-                    A <strong>125.8M parameter transformer</strong> I trained from scratch specifically for 
-                    quantum computing Q&A. This demonstrates end-to-end ML engineering skills.
-                </p>
-                <ul class="modal__list">
-                    <li>Custom architecture (RoPE, RMSNorm, SwiGLU)</li>
-                    <li>Trained on 28,071 Q&A pairs</li>
-                    <li>Two-phase training: book pretraining + Q&A fine-tuning</li>
-                    <li>RAG system for knowledge retrieval</li>
-                    <li>Model hosted on <a href="https://huggingface.co/eduardoperezstudent/quantum-compute-llm" target="_blank" style="color: #00b4d8;">Hugging Face</a></li>
-                    <li>Runs on CPU (slower but demonstrates full pipeline)</li>
-                </ul>
-            </div>
-        </div>
     </div>
 
     <!-- About Modal -->
@@ -176,21 +86,18 @@
             
             <p class="modal__intro">
                 A full-stack ML application showcasing end-to-end machine learning engineering, 
-                from custom model training to production deployment.
+                from data processing to production deployment.
             </p>
 
             <div class="modal__grid">
                 <div class="modal__section">
                     <h3 class="modal__section-title">
-                        <i class="fa-solid fa-server"></i> Training Infrastructure
+                        <i class="fa-solid fa-bolt"></i> LLM
                     </h3>
                     <ul class="modal__list">
-                        <li><strong><a href="https://it.engineering.oregonstate.edu/hpc" target="_blank" style="color: #00b4d8;">Oregon State University HPC</a></strong></li>
-                        <li>NVIDIA H100 GPUs</li>
-                        <li>Two-phase training approach</li>
-                        <li>Phase 1: Book pretraining (17 epochs)</li>
-                        <li>Phase 2: Context Q&A fine-tuning (10 epochs)</li>
-                        <li>480-test parameter optimization battery</li>
+                        <li><strong>Llama 3.3 70B Versatile</strong> via Groq</li>
+                        <li>Ultra-fast inference (~1-2 seconds)</li>
+                        <li>State-of-the-art open model</li>
                     </ul>
                 </div>
 
@@ -212,12 +119,11 @@
                         <i class="fa-solid fa-code"></i> Tech Stack
                     </h3>
                     <ul class="modal__list">
-                        <li><strong>Backend:</strong> FastAPI, PyTorch</li>
+                        <li><strong>Backend:</strong> FastAPI</li>
                         <li><strong>Frontend:</strong> Flask, Vanilla JS</li>
                         <li><strong>Database:</strong> Neon PostgreSQL</li>
                         <li><strong>Embeddings:</strong> Voyage AI</li>
                         <li><strong>LLM API:</strong> Groq</li>
-                        <li><strong>Model Hosting:</strong> Hugging Face</li>
                         <li><strong>Hosting:</strong> Railway</li>
                     </ul>
                 </div>
@@ -229,8 +135,7 @@
                     <ul class="modal__list">
                         <li>15,000 Claude-generated Q&A pairs</li>
                         <li><a href="https://quantumcomputing.stackexchange.com/help/data-dumps" target="_blank" style="color: #00b4d8;">Stack Exchange quantum computing posts</a></li>
-                        <li><a href="https://huggingface.co/datasets/isaiahbjork/cot-logic-reasoning" target="_blank" style="color: #00b4d8;">Quantum Computing Chain-of-Thought reasoning dataset</a></li>
-                        <li>620K words from cleaned textbooks</li>
+                        <li><a href="https://huggingface.co/datasets/isaiahbjork/cot-logic-reasoning" target="_blank" style="color: #00b4d8;">Chain-of-Thought reasoning dataset</a></li>
                         <li>Rigorous data quality verification</li>
                     </ul>
                 </div>
@@ -241,9 +146,8 @@
                     </h3>
                     <ul class="modal__list">
                         <li>End-to-end ML pipeline</li>
-                        <li>Custom model + RAG integration</li>
-                        <li>Dual-mode architecture</li>
-                        <li>~$8/month operational cost</li>
+                        <li>RAG integration with 100% accuracy</li>
+                        <li>~$5/month operational cost</li>
                         <li>Production-ready deployment</li>
                     </ul>
                 </div>

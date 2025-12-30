@@ -1,13 +1,6 @@
 """
 Flask frontend for Quantum Computing LLM.
 Serves the chat UI and proxies API requests to the backend.
-
-Local:
-    cd frontend
-    python app.py
-
-Railway:
-    Set BACKEND_URL environment variable to backend service URL
 """
 
 import os
@@ -16,7 +9,6 @@ import requests
 
 app = Flask(__name__)
 
-# Backend API URL (env var for Railway, localhost for local dev)
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
@@ -34,7 +26,7 @@ def query():
         response = requests.post(
             f"{BACKEND_URL}/query",
             json=data,
-            timeout=300
+            timeout=30
         )
         return jsonify(response.json()), response.status_code
     except requests.exceptions.Timeout:
