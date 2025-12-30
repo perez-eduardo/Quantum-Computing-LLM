@@ -80,38 +80,86 @@
 
     <!-- About Modal -->
     <div class="modal" id="about-modal" onclick="closeModalOnBackdrop(event, 'about-modal')">
-        <div class="modal__content">
+        <div class="modal__content modal__content--wide">
             <button class="modal__close" onclick="closeModal('about-modal')">&times;</button>
             <h2 class="modal__title">About This Project</h2>
             
             <p class="modal__intro">
-                A RAG-powered quantum computing Q&A assistant using Llama 3.3 70B via Groq.
+                A full-stack ML application showcasing end-to-end machine learning engineering, 
+                from data processing to production deployment.
             </p>
 
-            <div class="modal__section">
-                <h3 class="modal__section-title"><i class="fa-solid fa-database"></i> RAG System</h3>
-                <ul class="modal__list">
-                    <li><strong>28,071 Q&A pairs</strong> in knowledge base</li>
-                    <li>Voyage AI embeddings</li>
-                    <li>Neon PostgreSQL + pgvector</li>
-                    <li>100% retrieval accuracy</li>
-                </ul>
-            </div>
+            <div class="modal__grid">
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-bolt"></i> LLM
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>Llama 3.3 70B Versatile</strong> via Groq</li>
+                        <li>Ultra-fast inference (~1-2 seconds)</li>
+                        <li>State-of-the-art open model</li>
+                    </ul>
+                </div>
 
-            <div class="modal__section">
-                <h3 class="modal__section-title"><i class="fa-solid fa-code"></i> Tech Stack</h3>
-                <ul class="modal__list">
-                    <li><strong>Backend:</strong> FastAPI</li>
-                    <li><strong>Frontend:</strong> Flask</li>
-                    <li><strong>Database:</strong> Neon PostgreSQL</li>
-                    <li><strong>Embeddings:</strong> Voyage AI</li>
-                    <li><strong>LLM:</strong> Groq (Llama 3.3 70B)</li>
-                    <li><strong>Hosting:</strong> Railway</li>
-                </ul>
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-database"></i> RAG System
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>28,071 Q&A pairs</strong> in knowledge base</li>
+                        <li>Voyage AI embeddings</li>
+                        <li>Neon PostgreSQL + pgvector</li>
+                        <li>100% retrieval accuracy</li>
+                        <li>Semantic similarity search</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-code"></i> Tech Stack
+                    </h3>
+                    <ul class="modal__list">
+                        <li><strong>Backend:</strong> FastAPI</li>
+                        <li><strong>Frontend:</strong> Flask, Vanilla JS</li>
+                        <li><strong>Database:</strong> Neon PostgreSQL</li>
+                        <li><strong>Embeddings:</strong> Voyage AI</li>
+                        <li><strong>LLM API:</strong> Groq</li>
+                        <li><strong>Hosting:</strong> Railway</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-book"></i> Training Data
+                    </h3>
+                    <ul class="modal__list">
+                        <li>15,000 Claude-generated Q&A pairs</li>
+                        <li><a href="https://quantumcomputing.stackexchange.com/help/data-dumps" target="_blank" style="color: #00b4d8;">Stack Exchange quantum computing posts</a></li>
+                        <li><a href="https://huggingface.co/datasets/isaiahbjork/cot-logic-reasoning" target="_blank" style="color: #00b4d8;">Chain-of-Thought reasoning dataset</a></li>
+                        <li>Rigorous data quality verification</li>
+                    </ul>
+                </div>
+
+                <div class="modal__section">
+                    <h3 class="modal__section-title">
+                        <i class="fa-solid fa-lightbulb"></i> Key Achievements
+                    </h3>
+                    <ul class="modal__list">
+                        <li>End-to-end ML pipeline</li>
+                        <li>RAG integration with 100% accuracy</li>
+                        <li>~$5/month operational cost</li>
+                        <li>Production-ready deployment</li>
+                    </ul>
+                </div>
             </div>
 
             <div class="modal__section modal__section--contact">
-                <h3 class="modal__section-title"><i class="fa-solid fa-envelope"></i> Contact</h3>
+                <h3 class="modal__section-title">
+                    <i class="fa-solid fa-envelope"></i> Contact
+                </h3>
+                <p class="modal__text">
+                    Interested in my work? Let's connect!
+                </p>
                 <div class="modal__contact-links">
                     <a href="https://github.com/perez-eduardo/" target="_blank" class="modal__contact-link">
                         <i class="fa-brands fa-github"></i> GitHub

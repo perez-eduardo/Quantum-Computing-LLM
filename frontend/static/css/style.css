@@ -337,6 +337,16 @@ body {
     animation: modalFadeIn 0.3s ease;
 }
 
+.modal__content--wide {
+    max-width: 800px;
+}
+
+.modal__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
 @keyframes modalFadeIn {
     from { opacity: 0; transform: translateY(-20px); }
     to { opacity: 1; transform: translateY(0); }
