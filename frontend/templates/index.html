@@ -60,7 +60,7 @@
 
         <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)" style="display: none;">
             <div class="input-bar__loader input-bar__loader--visible" id="input-loader">
-                <video class="loading__video loading__video--paused" id="loading-video" muted loop playsinline>
+                <video class="loading__video loading__video--paused" id="loading-video" muted loop playsinline preload="auto">
                     <source src="{{ url_for('static', filename='images/loading.webm') }}" type="video/webm">
                 </video>
             </div>
