@@ -333,61 +333,6 @@ async def query(request: QueryRequest):
     )
 
 
-@app.post("/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
-    """Answer a quantum computing question."""
-    if not request.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
-    
-    start_time = time.time()
-    was_loaded = model_state.inference is not None
-    
-    print(f"[DEBUG] Query received: {request.question[:50]}...")
-    print(f"[DEBUG] use_groq: {request.use_groq}")
-    
-    # Step 1: Retrieve context
-    print("[DEBUG] Starting retrieval...")
-    results = retriever.search(request.question, top_k=5)
-    print(f"[DEBUG] Retrieved {len(results)} results")
-    
-    if not results:
-        raise HTTPException(status_code=404, detail="No relevant context found")
-    
-    # Step 2: Build context from top 3 results
-    print("[DEBUG] Building context...")
-    context = build_context(results, top_k=3)
-    print(f"[DEBUG] Context length: {len(context)} chars")
-    
-    # Step 3: Select LLM and generate
-    if request.use_groq:
-        print("[DEBUG] Using Groq...")
-        try:
-            llm = get_groq_model()
-        except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        model_loaded_fresh = False
-    else:
-        print("[DEBUG] Loading custom model...")
-        llm = get_custom_model()
-        print("[DEBUG] Custom model ready")
-        model_loaded_fresh = not was_loaded
-    
-    # Step 4: Generate answer
-    print("[DEBUG] Starting generation...")
-    try:
-        generated = llm.generate(context, request.question)
-        print(f"[DEBUG] Generation complete, length: {len(generated)}")
-    except Exception as e:
-        print(f"[DEBUG] Generation FAILED: {type(e).__name__}: {e}")
-        raise
-    
-    print("[DEBUG] Extracting answer...")
-    answer = llm.extract_answer(generated)
-    print(f"[DEBUG] Answer extracted, length: {len(answer)}")
-    
-
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
