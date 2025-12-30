@@ -155,8 +155,8 @@ async function sendQuestion(question) {
     const loadingEl = addLoadingIndicator();
 
     try {
-        // Set timeout based on model (30s for Groq, 150s for Custom)
-        const timeout = selectedModel === 'groq' ? 30000 : 150000;
+        // Set timeout based on model (30s for Groq, 300s for Custom)
+        const timeout = selectedModel === 'groq' ? 30000 : 300000;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         
