@@ -275,7 +275,7 @@ body {
 
 .input-bar__button:hover:not(:disabled) {
     background-color: #5b68a0;
-    box-shadow: 0 0 12px rgba(170, 160, 226, 0.4);
+    box-shadow: 0 0 6px rgba(98, 99, 141, 0.4);
 }
 
 .input-bar__button:disabled {
