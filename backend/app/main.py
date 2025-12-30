@@ -7,7 +7,7 @@ from typing import Optional, List
 from contextlib import asynccontextmanager
 from difflib import SequenceMatcher
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
 SCRIPTS_PATH = Path(__file__).parent.parent / "scripts"
@@ -106,6 +106,11 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     return HealthResponse(status="ok")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return Response(status_code=204)
 
 
 @app.post("/query", response_model=QueryResponse)
