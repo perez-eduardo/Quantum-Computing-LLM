@@ -9,6 +9,11 @@ const sendBtn = document.getElementById('send-btn');
 const inputLoader = document.getElementById('input-loader');
 const loadingVideo = document.getElementById('loading-video');
 
+// Preload loading animation video
+const preloadVideo = document.createElement('video');
+preloadVideo.src = '/static/images/loading.webm';
+preloadVideo.preload = 'auto';
+
 function openModal(id) {
     document.getElementById(id).classList.add('modal--open');
     document.body.style.overflow = 'hidden';
