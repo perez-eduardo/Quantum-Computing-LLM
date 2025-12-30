@@ -6,13 +6,7 @@ const welcome = document.getElementById('welcome');
 const messages = document.getElementById('messages');
 const inputField = document.getElementById('input-field');
 const sendBtn = document.getElementById('send-btn');
-const inputLoader = document.getElementById('input-loader');
 const loadingVideo = document.getElementById('loading-video');
-
-// Preload loading animation video
-const preloadVideo = document.createElement('video');
-preloadVideo.src = '/static/images/loading.webm';
-preloadVideo.preload = 'auto';
 
 function openModal(id) {
     document.getElementById(id).classList.add('modal--open');
@@ -55,16 +49,19 @@ function hideSuggestedButtons(q) {
 async function sendQuestion(question) {
     if (isLoading) return;
     hideSuggestedButtons(question);
+    const isFirstMessage = !hasMessages;
 
-    if (!hasMessages) {
+    if (isFirstMessage) {
+        hasMessages = true;
+        playVideo();
+    } else {
         welcome.style.display = 'none';
         messages.style.display = 'flex';
-        hasMessages = true;
     }
 
     addMessage('user', question);
     setLoading(true);
-    const loadingEl = addLoadingIndicator();
+    const loadingEl = isFirstMessage ? null : addLoadingIndicator();
 
     try {
         const controller = new AbortController();
@@ -79,7 +76,14 @@ async function sendQuestion(question) {
         
         clearTimeout(timeoutId);
         const data = await response.json();
-        loadingEl.remove();
+        if (loadingEl) loadingEl.remove();
+        
+        // First message: transition from welcome to messages
+        if (welcome.style.display !== 'none') {
+            pauseVideo();
+            welcome.style.display = 'none';
+            messages.style.display = 'flex';
+        }
 
         if (response.ok) {
             addMessage('ai', data.answer, data.response_time_ms, data.suggested_question);
@@ -87,7 +91,15 @@ async function sendQuestion(question) {
             addMessage('error', data.error || 'Something went wrong.');
         }
     } catch (error) {
-        loadingEl.remove();
+        if (loadingEl) loadingEl.remove();
+        
+        // First message error: transition from welcome to messages
+        if (welcome.style.display !== 'none') {
+            pauseVideo();
+            welcome.style.display = 'none';
+            messages.style.display = 'flex';
+        }
+        
         addMessage('error', error.name === 'AbortError' ? 'Request timed out.' : 'Failed to connect.');
     } finally {
         setLoading(false);
@@ -160,7 +172,6 @@ function addLoadingIndicator() {
     div.innerHTML = `<div class="loading__bubble"><span class="loading__message">Thinking</span><span class="loading__dots"></span></div>`;
     messages.appendChild(div);
     scrollToBottom();
-    showVideo();
     playVideo();
     startDots();
     return div;
@@ -178,7 +189,6 @@ function stopDots() {
     if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; }
 }
 
-function showVideo() { inputLoader.classList.add('input-bar__loader--visible'); }
 function playVideo() { loadingVideo.play(); loadingVideo.classList.remove('loading__video--paused'); }
 function pauseVideo() { loadingVideo.pause(); loadingVideo.classList.add('loading__video--paused'); }
 

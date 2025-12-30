@@ -281,6 +281,12 @@ body {
     color: #606060;
 }
 
+.welcome__video {
+    width: 150px;
+    height: auto;
+    margin-bottom: 20px;
+}
+
 .loading__video {
     width: 120px;
     height: auto;

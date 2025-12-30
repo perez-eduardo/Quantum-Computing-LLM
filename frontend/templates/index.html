@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='8' fill='%2300b4d8'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(60 50 50)'/%3E%3Cellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2300b4d8' stroke-width='2' transform='rotate(120 50 50)'/%3E%3C/svg%3E">
-    <link rel="preload" href="{{ url_for('static', filename='images/loading.webm') }}" as="video" type="video/webm">
 </head>
 <body>
     <div class="app">
@@ -41,7 +40,9 @@
 
         <div class="chat" id="chat" style="display: none;">
             <div class="welcome" id="welcome">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="welcome__logo">
+                <video class="welcome__video loading__video loading__video--paused" id="loading-video" muted loop playsinline>
+                    <source src="{{ url_for('static', filename='images/loading.webm') }}" type="video/webm">
+                </video>
                 <h2 class="welcome__title">Ask me anything about quantum computing</h2>
                 <p class="welcome__text">
                     I can help explain concepts like qubits, superposition, entanglement, quantum gates, and more.
@@ -60,11 +61,6 @@
         </div>
 
         <form class="input-bar" id="input-form" onsubmit="handleSubmit(event)" style="display: none;">
-            <div class="input-bar__loader" id="input-loader">
-                <video class="loading__video" id="loading-video" muted loop playsinline>
-                    <source src="{{ url_for('static', filename='images/loading.webm') }}" type="video/webm">
-                </video>
-            </div>
             <div class="input-bar__row">
                 <input type="text" class="input-bar__input" id="input-field" placeholder="Ask a question about quantum computing..." autocomplete="off">
                 <button type="submit" class="input-bar__button" id="send-btn">Send</button>
