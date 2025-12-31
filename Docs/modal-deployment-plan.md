@@ -1,13 +1,13 @@
 # Modal Deployment Plan - Quantum Computing LLM
 
 **Status:** ✅ COMPLETE
-**Last Updated:** December 30, 2025
+**Last Updated:** December 31, 2025
 
 ---
 
 ## Overview
 
-The custom 140M parameter QuantumLLM is deployed on Modal for serverless GPU inference. This provides fast inference (~5-10s) compared to CPU (~50-80s) while staying within budget using Modal's $30/month free tier.
+The custom 140M parameter QuantumLLM is deployed on Modal for serverless GPU inference. This provides fast inference (~35-60s) compared to Railway CPU (~50-80s) while staying within budget using Modal's $30/month free tier.
 
 ---
 
@@ -193,6 +193,7 @@ curl -X POST https://perez-eduardo--quantum-llm-query.modal.run \
 |--------|-------|
 | Cold start | 3-4 seconds |
 | Warm inference | 5-10 seconds |
+| Total response time | ~35-60 seconds |
 | VRAM usage | ~560MB |
 
 ---
@@ -235,13 +236,17 @@ Watch for "Building image" in output.
 
 ## Integration with Railway Backend
 
-To enable dual-mode (Groq + Custom) in the Railway backend:
+The Railway backend calls Modal when `model="custom"` is specified:
 
-1. Add `MODAL_URL` env var in Railway
-2. Create `modal_inference.py` in backend/scripts/
-3. Update `main.py` to accept `model` parameter
-4. Frontend sends `model: "groq"` or `model: "custom"`
+1. Backend receives request with `model: "custom"`
+2. Backend retrieves context from Neon (RAG)
+3. Backend calls Modal `/query` endpoint with context + question
+4. Modal returns answer
+5. Backend returns response to frontend
+
+**Environment Variables (Railway Backend):**
+- `MODAL_URL=https://perez-eduardo--quantum-llm-query.modal.run`
 
 ---
 
-*Document version: 3.0*
+*Document version: 4.0*

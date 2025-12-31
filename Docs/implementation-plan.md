@@ -1,12 +1,13 @@
 # Quantum Computing Assistant - Implementation Plan
 
-**Last Updated:** December 30, 2025
+**Last Updated:** December 31, 2025
 
 **Related Documents:**
 - Design Document: `quantum-computing-assistant-design.md`
 - Infrastructure Planning: `initial-exploratory-brainstorming.md`
 - Model Investigation Report: `model_investigation_report.md`
 - Modal Deployment Plan: `modal-deployment-plan.md`
+- Groq Integration Plan: `groq-integration-plan.md`
 
 ---
 
@@ -14,10 +15,10 @@
 
 **Phase 1:** Training Pipeline - ✅ COMPLETE (v5 trained, 100% pass rate)
 **Phase 2:** RAG System - ✅ COMPLETE (100% retrieval accuracy)
-**Phase 3:** Backend - ✅ COMPLETE (FastAPI, Groq-only)
-**Phase 4:** Frontend - ✅ COMPLETE (Flask + Jinja)
+**Phase 3:** Backend - ✅ COMPLETE (FastAPI, dual-mode Groq + Modal)
+**Phase 4:** Frontend - ✅ COMPLETE (Flask + Jinja, model selector, health checks)
 **Phase 5:** Deployment - ✅ COMPLETE (Railway, live)
-**Phase 6:** Custom Model Hosting - ✅ COMPLETE (Modal, live)
+**Phase 6:** Custom Model Hosting - ✅ COMPLETE (Modal T4 GPU, live)
 
 **Live URLs:**
 - Frontend: https://quantum-computing-llm.up.railway.app
@@ -34,17 +35,17 @@
 
 | Component | Host | Purpose |
 |-----------|------|---------|
-| Frontend | Railway | User interface |
+| Frontend | Railway | User interface, model selector |
 | Backend + RAG | Railway | API, retrieval, Groq inference |
-| Custom Model | Modal | Demo inference (140M transformer) |
+| Custom Model | Modal (T4 GPU) | Demo inference (140M transformer) |
 
 ### Request Flow
 
 ```
-User Question → Railway Backend → Voyage AI embed → Neon vector search → Build prompt
-                                                                        ↓
-                                                    mode=groq   → Groq API (~1-2s)
-                                                    mode=custom → Modal API (~5-10s GPU)
+User Question → Railway Frontend → Railway Backend → Voyage AI embed → Neon vector search
+                                                                              ↓
+                                                         model="groq"   → Groq API (~2-3s)
+                                                         model="custom" → Modal API (~35-60s)
 ```
 
 ---
@@ -75,7 +76,7 @@ User Question → Railway Backend → Voyage AI embed → Neon vector search →
 | GPU | T4 (16GB VRAM) |
 | Free tier | $30/month |
 | Cold start | 3-4 seconds |
-| Inference | ~5-10 seconds |
+| Inference | ~35-60 seconds total |
 | Idle timeout | 5 minutes |
 | Volume | quantum-model-volume |
 | Query endpoint | https://perez-eduardo--quantum-llm-query.modal.run |
@@ -112,7 +113,10 @@ Quantum-Computing-LLM/
 ├── Docs/
 │   ├── implementation-plan.md
 │   ├── modal-deployment-plan.md
-│   └── ...
+│   ├── groq-integration-plan.md
+│   ├── initial-exploratory-brainstorming.md
+│   ├── model_investigation_report.md
+│   └── quantum-computing-assistant-design.md
 │
 ├── training/
 │   ├── model/
@@ -126,19 +130,22 @@ Quantum-Computing-LLM/
 │       ├── train.py
 │       └── evaluate.py
 │
-├── backend/                      # Railway (Groq-only)
+├── backend/                      # Railway
 │   ├── Dockerfile
 │   ├── Procfile
 │   ├── requirements.txt
 │   ├── scripts/
 │   │   ├── retrieval.py
-│   │   └── groq_inference.py
+│   │   ├── base_inference.py
+│   │   ├── groq_inference.py
+│   │   └── modal_inference.py
 │   └── app/
 │       ├── __init__.py
 │       ├── config.py
 │       └── main.py
 │
 ├── frontend/                     # Railway
+│   ├── Dockerfile                # gunicorn --timeout 300
 │   ├── Procfile
 │   ├── app.py
 │   ├── requirements.txt
@@ -161,6 +168,42 @@ Quantum-Computing-LLM/
 
 ---
 
+## Frontend Features
+
+### Model Selector
+- Dropdown in header (top-left)
+- Options: Groq (default), Custom
+- Toast notification when Custom selected
+- Displays response time expectations
+
+### Health Check System
+- Initial startup check (waits for backend)
+- Pre-query health check on every request
+- Wake-up indicator for cold starts
+- Specific error message after 10 failed attempts
+
+### Loading Indicators
+- Groq: "Thinking..."
+- Custom: Pipeline animation with stages:
+  - "Embedding your question with Voyage AI"
+  - "Searching knowledge base (28,071 Q&A pairs)"
+  - "Retrieved relevant context from Neon database"
+  - "Ranking results by relevance"
+  - "Building prompt with context"
+  - "Loading 140M parameter model"
+  - "Generating response"
+
+### Error Handling
+- Retry button on failed queries
+- Timeout handling (30s Groq, 180s Custom)
+- Backend unavailable detection
+
+### Modals
+- Models modal: Explains Groq vs Custom
+- About modal: Project details, tech stack, contact links
+
+---
+
 ## Completed Tasks
 
 ### Phase 6: Modal Deployment ✅
@@ -174,26 +217,20 @@ Quantum-Computing-LLM/
 - [x] Test health endpoint
 - [x] Test query endpoint
 
----
+### Frontend Integration ✅
+- [x] Add model selector dropdown (Groq vs Custom)
+- [x] Update JS to send model choice to backend
+- [x] Increase timeout for custom model requests (300s)
+- [x] Update About modal with custom model info
+- [x] Add health check before every query
+- [x] Add retry button for failed queries
+- [x] Add cold start detection and wake-up indicator
 
-## Pending Tasks
-
-### Frontend Integration (Local Development)
-
-| Task | Priority |
-|------|----------|
-| Add model selector dropdown (Groq vs Custom) | High |
-| Update JS to send model choice to backend | High |
-| Increase timeout for custom model requests | High |
-| Update About modal with custom model info | Medium |
-
-### Backend Integration
-
-| Task | Priority |
-|------|----------|
-| Add modal_inference.py | Medium |
-| Update main.py for dual mode | Medium |
-| Add MODAL_URL env var | Medium |
+### Backend Integration ✅
+- [x] Add modal_inference.py
+- [x] Update main.py for dual mode
+- [x] Add MODAL_URL env var
+- [x] Deploy to Railway with Groq API key
 
 ---
 
@@ -205,9 +242,13 @@ Quantum-Computing-LLM/
 
 3. **Modal cold start ~3-4s.** Acceptable for demo purposes.
 
-4. **T4 GPU inference ~5-10s.** Much faster than CPU (~50-80s).
+4. **T4 GPU inference ~35-60s total.** Much faster than Railway CPU (~50-80s).
 
 5. **Modal $30/mo free tier.** Sufficient for demo usage.
+
+6. **Health check before every query.** Prevents 502 errors from sleeping servers.
+
+7. **Dockerfile timeout matters.** Must match Procfile (300s for custom model).
 
 ---
 
@@ -224,4 +265,4 @@ Quantum-Computing-LLM/
 
 ---
 
-*Document version: 26.0*
+*Document version: 27.0*

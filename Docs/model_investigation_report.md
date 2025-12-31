@@ -1,22 +1,23 @@
 # Model Investigation Report
 
 **Date:** December 21, 2025
-**Updated:** December 27, 2025
+**Last Updated:** December 31, 2025
 **Purpose:** Document findings from model training, evaluation, and parameter tuning
 
 ---
 
 ## Current Status
 
-**Training:** ✅ COMPLETE (v5, 125.8M params)
+**Training:** ✅ COMPLETE (v5, 140M params)
 **RAG:** ✅ COMPLETE (100% retrieval accuracy)
 **Parameter Tuning:** ✅ COMPLETE (temp=0.2, top_k=30)
 **Extraction Fix:** ✅ COMPLETE (find() not rfind())
-**Backend Classes:** ✅ COMPLETE (Retriever, BaseLLM, QuantumInference, GroqInference)
-**FastAPI App:** ✅ COMPLETE (lazy loading, suggested questions, LLM selection)
-**Frontend:** ✅ COMPLETE (Flask + Jinja)
+**Backend Classes:** ✅ COMPLETE (Retriever, BaseLLM, GroqInference, ModalInference)
+**FastAPI App:** ✅ COMPLETE (dual-mode, suggested questions)
+**Frontend:** ✅ COMPLETE (Flask + Jinja, model selector, health checks)
 **Deployment:** ✅ COMPLETE (Railway, live)
-**Groq Integration:** ✅ COMPLETE (tested locally, 20/20 queries passed)
+**Groq Integration:** ✅ COMPLETE (deployed, ~2-3s response)
+**Modal Deployment:** ✅ COMPLETE (T4 GPU, ~35-60s response)
 
 ---
 
@@ -27,6 +28,8 @@
 | Frontend | https://quantum-computing-llm.up.railway.app |
 | Backend | https://quantum-computing-llm-backend.up.railway.app |
 | API Docs | https://quantum-computing-llm-backend.up.railway.app/docs |
+| Modal Query | https://perez-eduardo--quantum-llm-query.modal.run |
+| Modal Health | https://perez-eduardo--quantum-llm-health.modal.run |
 
 ---
 
@@ -34,13 +37,10 @@
 
 ### Two LLM Modes
 
-| Mode | LLM | Speed | Status |
-|------|-----|-------|--------|
-| Production | Groq API (Llama 3.3 70B) | ~725ms | ✅ Complete |
-| Demo | Custom 125.8M | ~50-80s | ✅ Deployed |
-
-Custom model uses lazy loading to save cost (~$2-3/month vs $6-8/month).
-Groq client is always loaded (lightweight, no lazy loading needed).
+| Mode | LLM | Host | Speed | Status |
+|------|-----|------|-------|--------|
+| Production | Groq API (Llama 3.3 70B) | Groq Cloud | ~2-3s | ✅ Complete |
+| Demo | Custom 140M | Modal (T4 GPU) | ~35-60s | ✅ Complete |
 
 ---
 
@@ -50,9 +50,9 @@ Groq client is always loaded (lightweight, no lazy loading needed).
 
 ```python
 class Retriever:
-    def embed_query(query) -> List[float]   # Voyage AI, input_type="query"
-    def search(query, top_k) -> List[Dict]  # Returns question, answer, source, similarity
-    def get_stats() -> Dict                  # Database statistics
+    def embed_query(query: str) -> List[float]
+    def search(query: str, top_k: int = 5) -> List[Dict]
+    def get_stats() -> Dict
 ```
 
 ### BaseLLM (`backend/scripts/base_inference.py`)
@@ -60,31 +60,31 @@ class Retriever:
 ```python
 class BaseLLM(ABC):
     @property
-    def name(self) -> str                    # "groq" or "custom"
-    def generate(context, question) -> str
-    def extract_answer(generated_text) -> str
-```
-
-### QuantumInference (`backend/scripts/inference.py`)
-
-```python
-class QuantumInference(BaseLLM):
-    def __init__(model_path, tokenizer_path, device)
-    def generate(context, question) -> str   # Builds flat prompt internally
-    def extract_answer(generated_text) -> str  # Gets first answer after "Answer:"
-    @property
-    def name(self) -> str                    # Returns "custom"
+    def name(self) -> str
+    def generate(context: str, question: str) -> str
+    def extract_answer(generated_text: str) -> str
 ```
 
 ### GroqInference (`backend/scripts/groq_inference.py`)
 
 ```python
 class GroqInference(BaseLLM):
-    def __init__()                           # Initializes Groq client
-    def generate(context, question) -> str   # Chat completion API
-    def extract_answer(generated_text) -> str  # Returns as-is (already clean)
+    def __init__()
+    def generate(context, question) -> str
+    def extract_answer(generated_text) -> str
     @property
-    def name(self) -> str                    # Returns "groq"
+    def name(self) -> str  # Returns "groq"
+```
+
+### ModalInference (`backend/scripts/modal_inference.py`)
+
+```python
+class ModalInference(BaseLLM):
+    def __init__()
+    def generate(context, question) -> str  # Calls Modal API
+    def extract_answer(generated_text) -> str
+    @property
+    def name(self) -> str  # Returns "custom"
 ```
 
 ---
@@ -98,13 +98,15 @@ class GroqInference(BaseLLM):
 | Model architecture | `training/scripts/model.py` |
 | Retriever class | `backend/scripts/retrieval.py` |
 | Base LLM class | `backend/scripts/base_inference.py` |
-| Custom inference | `backend/scripts/inference.py` |
 | Groq inference | `backend/scripts/groq_inference.py` |
+| Modal inference | `backend/scripts/modal_inference.py` |
 | FastAPI config | `backend/app/config.py` |
 | FastAPI main | `backend/app/main.py` |
 | Flask app | `frontend/app.py` |
 | Jinja template | `frontend/templates/index.html` |
-| CSS styles | `frontend/static/style.css` |
+| CSS styles | `frontend/static/css/style.css` |
+| JavaScript | `frontend/static/js/main.js` |
+| Modal deployment | `modal/inference.py` |
 
 ---
 
@@ -134,10 +136,9 @@ Tested 24 parameter combinations (4 temps × 6 top_k) across 20 questions = 480 
 
 Full RAG pipeline test (Voyage API + Neon DB + Custom Model):
 
-| Parameters | Pass Rate | Keyword Score | Retrieve | Generate | Total |
-|------------|-----------|---------------|----------|----------|-------|
-| **temp=0.2, top_k=30** | **100%** | 76.2% | 1.57s | 35.1s | 36.6s |
-| temp=0.4, top_k=20 | 95% | 76.5% | 0.56s | 38.5s | 39.0s |
+| Parameters | Pass Rate | Keyword Score |
+|------------|-----------|---------------|
+| **temp=0.2, top_k=30** | **100%** | 76.2% |
 
 **Winner:** temp=0.2, top_k=30
 
@@ -149,7 +150,7 @@ Full RAG pipeline test (Voyage API + Neon DB + Custom Model):
 
 ---
 
-## Groq Integration Results (December 27, 2025)
+## Groq Integration Results ✅
 
 ### Configuration
 
@@ -161,55 +162,33 @@ Full RAG pipeline test (Voyage API + Neon DB + Custom Model):
 
 ### Test Results
 
-20 quantum computing questions tested via Docker:
+20 quantum computing questions tested:
 
 | Metric | Value |
 |--------|-------|
 | Pass rate | **100%** (20/20) |
-| Avg response time | **~725ms** |
+| Avg response time | **~2-3s** |
 | Answer quality | Beginner-friendly, accurate |
 
-### Sample Response
+---
 
-```json
-{
-  "answer": "A qubit, short for quantum bit, is the basic unit of information in quantum computing. It's special because, unlike a classical bit that can only be 0 or 1, a qubit can be 0, 1, or both at the same time...",
-  "sources": [
-    {"question": "is a qubit just a tiny particle?", "source": "claude", "similarity": 0.7602},
-    {"question": "What is a qubit?", "source": "claude", "similarity": 0.7377},
-    {"question": "What is a quantum bit fundamentally?", "source": "claude", "similarity": 0.7346}
-  ],
-  "response_time_ms": 725,
-  "model_loaded_fresh": false,
-  "suggested_question": "can you explain qubits in simple terms?",
-  "llm_used": "groq"
-}
-```
+## Modal Deployment Results ✅
 
-### Questions Tested
+### Configuration
 
-All passed:
-- What is a qubit?
-- What is superposition?
-- What is quantum entanglement?
-- What is a quantum gate?
-- What is the Hadamard gate?
-- What is quantum decoherence?
-- What is a quantum circuit?
-- What is Shor's algorithm?
-- What is Grover's algorithm?
-- What is quantum error correction?
-- What is the Bloch sphere?
-- What is quantum teleportation?
-- What is a CNOT gate?
-- What is quantum supremacy?
-- What is a quantum register?
-- What is quantum interference?
-- What is quantum parallelism?
-- What is a universal quantum gate set?
-- What is measurement in quantum computing?
-- How do quantum computers differ from classical computers?
-- What are the applications of quantum computing?
+| Setting | Value |
+|---------|-------|
+| GPU | T4 (16GB VRAM) |
+| Python | 3.10 |
+| Tokenizers | 0.22.1 (must match training) |
+
+### Performance
+
+| Metric | Value |
+|--------|-------|
+| Cold start | 3-4 seconds |
+| Warm inference | 5-10 seconds |
+| Total response time | ~35-60 seconds |
 
 ---
 
@@ -240,13 +219,15 @@ Changed `rfind()` to `find()` to get FIRST answer after the user's question.
 | Parameter | Value |
 |-----------|-------|
 | Type | Decoder-only transformer |
-| Parameters | **125,848,320 (125.8M)** |
+| Parameters | **140,004,480 (140M)** |
 | Layers | 12 |
 | Attention heads | 12 |
 | Embedding dimension | 768 |
 | Feed-forward dimension | 3072 |
 | Vocabulary | 16,384 (custom BPE) |
 | Context length | 1024 tokens |
+
+**Important:** Model config is stored INSIDE the .pt file. Use `QuantumLLM.load(path, device)` to load both weights and config.
 
 ---
 
@@ -273,7 +254,7 @@ Changed `rfind()` to `find()` to get FIRST answer after the user's question.
 
 | Metric | v1 | v3 | v4 | v5 |
 |--------|----|----|----|----|
-| Parameters | 1.2M | 1.2M | 1.2M | **125.8M** |
+| Parameters | 1.2M | 1.2M | 1.2M | **140M** |
 | Training format | Plain Q&A | Plain Q&A | Plain Q&A | **Context-aware** |
 | Training data | 96K (garbage) | 24K | 26,764 | 28,071 |
 | Final Perplexity | 15.55 | 89.63 | 91.80 | **2.20** |
@@ -306,14 +287,14 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ## Inference Configuration
 
-### Custom Model
+### Custom Model (Modal)
 
 | Setting | Value |
 |---------|-------|
 | Temperature | 0.2 |
 | Top-k | 30 |
-| Speed | ~50-80s (Railway CPU) |
-| Loading | Lazy (5 min timeout) |
+| Speed | ~35-60s (Modal T4 GPU) |
+| Host | Modal |
 
 ### Groq API ✅
 
@@ -322,8 +303,8 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 | Model | llama-3.3-70b-versatile |
 | Temperature | 0.2 |
 | Max tokens | 300 |
-| Speed | ~725ms |
-| Loading | Always loaded (lightweight) |
+| Speed | ~2-3s |
+| Host | Groq Cloud |
 
 ---
 
@@ -331,15 +312,15 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/health` | GET | Status, model_loaded, idle_seconds, groq_available |
-| `/query` | POST | Question → answer, sources, response_time_ms, suggested_question, llm_used |
+| `/health` | GET | Status, groq_available, modal_available |
+| `/query` | POST | Question → answer, sources, response_time_ms, suggested_question, model_used |
 
 ### Request Format
 
 ```json
 {
   "question": "What is a qubit?",
-  "use_groq": true
+  "model": "groq"
 }
 ```
 
@@ -349,10 +330,9 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 {
   "answer": "...",
   "sources": [...],
-  "response_time_ms": 725,
-  "model_loaded_fresh": false,
+  "response_time_ms": 2500,
   "suggested_question": "...",
-  "llm_used": "groq"
+  "model_used": "groq"
 }
 ```
 
@@ -362,54 +342,29 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 
 ---
 
-## Frontend Features (Flask + Jinja)
+## Frontend Features ✅
 
-### Welcome Screen
-- Animated atom icon (CSS keyframes)
-- 5 starter questions
-- Free-tier disclaimer (40-90s warning)
+### Model Selector
+- Dropdown in header (Groq vs Custom)
+- Toast notification when Custom selected
 
-### Chat Interface
-- User messages (blue, right-aligned)
-- AI messages (gray, left-aligned)
-- Response time display
-- Suggested follow-up button
+### Health Check System
+- Initial startup check
+- Pre-query health check on every request
+- Wake-up indicator for cold starts
+- Specific error after 10 failed attempts
 
-### Loading Indicator
-- Animated GIF
-- Rotating status messages (every 3s)
-- Patience reminder
+### Loading Indicators
+- Groq: "Thinking..."
+- Custom: Pipeline animation with 7 stages
 
----
+### Error Handling
+- Retry button on failed queries
+- Timeout handling (30s Groq, 180s Custom)
 
-## Deployment Details (December 27, 2025)
-
-### Railway Configuration
-
-| Setting | Value |
-|---------|-------|
-| Plan | Hobby ($5/month) |
-| Backend service | quantum-computing-llm-backend |
-| Frontend service | quantum-computing-llm |
-
-### Environment Variables
-
-**Backend:**
-- VOYAGE_API_KEY
-- DATABASE_URL
-- GROQ_API_KEY (pending Railway deployment)
-
-**Frontend:**
-- BACKEND_URL=https://quantum-computing-llm-backend.up.railway.app
-
-### Deployment Issues Resolved
-
-| Issue | Solution |
-|-------|----------|
-| Git LFS pointer file (130 bytes) | Clone repo + `git lfs pull` in Dockerfile |
-| Tokenizers version mismatch | Updated 0.15.0 → 0.22.1 |
-| Gunicorn timeout (30s default) | Set `--timeout 600` in Procfile |
-| groq proxy error | Updated groq==0.4.2 → groq>=0.11.0 |
+### Modals
+- Models modal: Groq vs Custom explanation
+- About modal: Project details, tech stack, contact
 
 ---
 
@@ -417,7 +372,7 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 
 1. **Two-phase training works.** Book pretraining + context fine-tuning.
 
-2. **125M params produces coherent text.** 1.2M was too small.
+2. **140M params produces coherent text.** 1.2M was too small.
 
 3. **Lower temperature = better.** temp=0.2 outperforms 0.3, 0.4.
 
@@ -425,33 +380,36 @@ Extracts key terms from answer, scores retrieved questions by term matches, filt
 
 5. **Extraction function matters.** rfind() grabbed wrong answer, find() fixed it.
 
-6. **Custom model inference:** ~50-80s per question on Railway CPU.
+6. **Modal for GPU inference.** ~35-60s vs ~50-80s on Railway CPU.
 
-7. **Lazy loading saves cost.** Load on demand, unload after idle.
+7. **IVFFlat index caused retrieval failures.** Exact search fixed it.
 
-8. **IVFFlat index caused retrieval failures.** Exact search fixed it.
+8. **ChatGPT synthetic data was garbage.** 94% unusable.
 
-9. **ChatGPT synthetic data was garbage.** 94% unusable.
+9. **HPC accelerates testing.** 480 tests in 5.8 min vs ~280 min on CPU.
 
-10. **HPC accelerates testing.** 480 tests in 5.8 min vs ~280 min on CPU.
+10. **Backend classes exist.** Retriever, BaseLLM, GroqInference, ModalInference ready.
 
-11. **Backend classes exist.** Retriever, BaseLLM, QuantumInference, GroqInference ready to use.
+11. **Flask + Jinja is simpler than React.** Single Python file, no npm/node.
 
-12. **Flask + Jinja is simpler than React.** Single Python file, no npm/node needed.
+12. **Git LFS needs explicit pull.** Railway doesn't auto-pull during build.
 
-13. **Git LFS needs explicit pull.** Railway doesn't auto-pull LFS files during build.
+13. **Tokenizers version must match.** Training and deployment use same version.
 
-14. **Tokenizers version must match.** Training and deployment must use same version.
+14. **Gunicorn timeout must exceed response time.** Set 300s for safety.
 
-15. **Gunicorn timeout must exceed response time.** Set 10x expected for safety.
+15. **Groq integration works.** ~2-3s response time, clean architecture.
 
-16. **Groq integration works.** ~725ms response time, clean architecture.
+16. **Abstract base class pattern.** Clean separation between LLM implementations.
 
-17. **Abstract base class pattern.** Clean separation between LLM implementations.
+17. **groq package version matters.** 0.4.2 had httpx issues, 0.11.0+ works.
 
-18. **groq package version matters.** 0.4.2 had httpx proxy issues, 0.11.0+ works.
+18. **Health check before every query.** Prevents 502 from sleeping servers.
+
+19. **Model config inside .pt file.** QuantumLLM.load() extracts config automatically.
+
+20. **Dockerfile timeout must match Procfile.** Both need 300s.
 
 ---
 
-*Document version: 19.0*
-*Last updated: December 27, 2025*
+*Document version: 20.0*

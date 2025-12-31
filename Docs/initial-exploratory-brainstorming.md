@@ -1,8 +1,9 @@
 # Initial Exploratory Brainstorming: Next LLM Project Stack
 
-**Date:** December 20, 2025 (Updated December 27, 2025)
-**Project:** Quantum Computing LLM  
-**Purpose:** Portfolio demonstration piece  
+**Date:** December 20, 2025
+**Last Updated:** December 31, 2025
+**Project:** Quantum Computing LLM
+**Purpose:** Portfolio demonstration piece
 **Expected Traffic:** Minimal (recruiters, students)
 
 ---
@@ -25,20 +26,20 @@ Need a stack that is:
 
 ### Two LLM Modes
 
-| Mode | LLM | Speed | Status |
-|------|-----|-------|--------|
-| Production | Groq API (Llama 3.3 70B) | ~725ms | ✅ Complete |
-| Demo | Custom 125.8M | ~50-80s | ✅ Deployed |
+| Mode | LLM | Host | Speed | Status |
+|------|-----|------|-------|--------|
+| Production | Groq API (Llama 3.3 70B) | Groq Cloud | ~2-3s | ✅ Complete |
+| Demo | Custom 140M | Modal (T4 GPU) | ~35-60s | ✅ Complete |
 
 ### Stack
 
 | Component | Provider | Cost | Notes |
 |-----------|----------|------|-------|
-| **Frontend** | Flask + Jinja | $0 | Port 3000 |
-| **Backend** | FastAPI | $0 | Port 8000 |
+| **Frontend** | Flask + Jinja | $0 | Port 3000, Railway |
+| **Backend** | FastAPI | $0 | Port 8000, Railway |
 | **Hosting** | Railway (Hobby) | $5/month | Monorepo, always on |
-| **LLM (Custom)** | Custom 125.8M | $0 | Lazy loaded, ~50-80s |
-| **LLM (Production)** | Groq API | $0 | Free tier, ~725ms |
+| **LLM (Custom)** | Custom 140M | $0 | Modal T4 GPU, ~35-60s |
+| **LLM (Production)** | Groq API | $0 | Free tier, ~2-3s |
 | **Embeddings** | Voyage AI | $0 | 200M free tokens |
 | **Database** | Neon (free) | $0 | PostgreSQL + pgvector |
 
@@ -54,6 +55,8 @@ Need a stack that is:
 | Backend | https://quantum-computing-llm-backend.up.railway.app |
 | API Docs | https://quantum-computing-llm-backend.up.railway.app/docs |
 | Health Check | https://quantum-computing-llm-backend.up.railway.app/health |
+| Modal Query | https://perez-eduardo--quantum-llm-query.modal.run |
+| Modal Health | https://perez-eduardo--quantum-llm-health.modal.run |
 
 ---
 
@@ -66,7 +69,7 @@ Quantum-Computing-LLM/
 │
 ├── training/
 │   ├── model/
-│   │   ├── final_model.pt              # 125.8M params (Git LFS)
+│   │   ├── final_model.pt              # 140M params (510MB, Git LFS)
 │   │   └── config.json
 │   ├── tokenizer/
 │   │   └── tokenizer.json              # 16K vocab BPE
@@ -80,23 +83,29 @@ Quantum-Computing-LLM/
 │   ├── scripts/
 │   │   ├── retrieval.py                # Retriever class
 │   │   ├── base_inference.py           # BaseLLM abstract class
-│   │   ├── inference.py                # QuantumInference(BaseLLM)
-│   │   └── groq_inference.py           # GroqInference(BaseLLM)
+│   │   ├── groq_inference.py           # GroqInference(BaseLLM)
+│   │   └── modal_inference.py          # ModalInference (calls Modal API)
 │   └── app/
 │       ├── __init__.py
-│       ├── config.py                   # Environment variables + Groq
+│       ├── config.py                   # Environment variables + Groq + Modal
 │       └── main.py                     # Endpoints, LLM selection
 │
 ├── frontend/
-│   ├── Dockerfile
-│   ├── Procfile                        # gunicorn --timeout 600
+│   ├── Dockerfile                      # gunicorn --timeout 300
+│   ├── Procfile
 │   ├── app.py                          # Flask server
 │   ├── requirements.txt
 │   ├── static/
-│   │   ├── style.css
-│   │   └── loading.gif
+│   │   ├── css/style.css
+│   │   ├── js/main.js                  # Model selector, health checks, retry
+│   │   └── images/
 │   └── templates/
-│       └── index.html                  # Jinja template with JS
+│       └── index.html                  # Jinja template with modals
+│
+├── modal/
+│   ├── inference.py                    # Modal app with QuantumLLM
+│   ├── test_local.py                   # Local testing script
+│   └── venv/                           # Modal CLI venv
 │
 └── .env                                # API keys (local only)
 ```
@@ -118,10 +127,10 @@ docker run -p 8000:8000 --env-file .env -e PORT=8000 quantum-backend
 Invoke-WebRequest -Uri http://localhost:8000/health
 
 # Groq (fast)
-Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "use_groq": true}'
+Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "model": "groq"}'
 
-# Custom (slow)
-Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "use_groq": false}'
+# Custom via Modal (slower)
+Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "model": "custom"}'
 ```
 
 ---
@@ -147,17 +156,6 @@ class BaseLLM(ABC):
     def extract_answer(generated_text) -> str
 ```
 
-### QuantumInference (`backend/scripts/inference.py`)
-
-```python
-class QuantumInference(BaseLLM):
-    def __init__(model_path, tokenizer_path, device)
-    def generate(context, question) -> str  # Flat prompt format
-    def extract_answer(generated_text) -> str
-    @property
-    def name(self) -> str  # Returns "custom"
-```
-
 ### GroqInference (`backend/scripts/groq_inference.py`)
 
 ```python
@@ -169,6 +167,17 @@ class GroqInference(BaseLLM):
     def name(self) -> str  # Returns "groq"
 ```
 
+### ModalInference (`backend/scripts/modal_inference.py`)
+
+```python
+class ModalInference(BaseLLM):
+    def __init__()
+    def generate(context, question) -> str  # Calls Modal API
+    def extract_answer(generated_text) -> str
+    @property
+    def name(self) -> str  # Returns "custom"
+```
+
 ---
 
 ## Pipeline
@@ -176,8 +185,8 @@ class GroqInference(BaseLLM):
 ```
 User Question → Voyage AI embed → Neon vector search → Build prompt → LLM generates answer
                                                                        ↓
-                                                            use_groq=true  → Groq (~725ms)
-                                                            use_groq=false → Custom (~50-80s)
+                                                        model="groq"   → Groq (~2-3s)
+                                                        model="custom" → Modal (~35-60s)
 ```
 
 ---
@@ -191,8 +200,9 @@ Even though Groq handles production, the custom model demonstrates:
 - Two-phase training pipeline
 - HPC cluster experience (H100 GPUs)
 - Data processing and cleaning
+- Modal serverless GPU deployment
 
-Recruiters can toggle "Demo Mode" to see the trained model in action.
+Recruiters can toggle "Custom" to see the trained model in action.
 
 ### Key File Locations
 
@@ -201,16 +211,17 @@ Recruiters can toggle "Demo Mode" to see the trained model in action.
 | Model weights | `training/model/final_model.pt` |
 | Tokenizer | `training/tokenizer/tokenizer.json` |
 | Model architecture | `training/scripts/model.py` |
+| Modal deployment | `modal/inference.py` |
 
 ### Configuration
 
 | Parameter | Value |
 |-----------|-------|
+| Parameters | 140,004,480 (140M) |
 | Temperature | 0.2 |
 | Top-k | 30 |
 | Pass Rate | 100% |
-| Keyword Score | 76-80% |
-| Inference time | ~50-80s (Railway CPU) |
+| Inference time | ~35-60s (Modal T4 GPU) |
 
 ### Parameter Tuning (December 26, 2025)
 
@@ -221,15 +232,6 @@ Battery test on HPC: 24 combinations × 20 questions = 480 tests in 5.8 minutes.
 | **temp=0.2, top_k=30** | **100%** | **80.5%** |
 | temp=0.4, top_k=20 | 100% | 78.8% |
 | temp=0.3, top_k=50 (old) | 100% | 74.2% |
-
-### Lazy Loading Strategy
-
-| Approach | RAM Usage | Cost |
-|----------|-----------|------|
-| Always loaded | ~700MB constant | ~$6-8/month |
-| **Lazy load + timeout** | ~200MB idle | **~$2-3/month** |
-
-Model loads on first request, unloads after 5 min idle.
 
 ---
 
@@ -242,23 +244,25 @@ Model loads on first request, unloads after 5 min idle.
 | Model | llama-3.3-70b-versatile |
 | Temperature | 0.2 |
 | Max tokens | 300 |
-| Response time | ~725ms |
+| Response time | ~2-3s |
 
 ### Test Results (December 27, 2025)
 
 20 quantum computing questions tested, all passed.
 
-Sample response:
-```json
-{
-  "answer": "A qubit, short for quantum bit, is the basic unit of information...",
-  "sources": [...],
-  "response_time_ms": 725,
-  "model_loaded_fresh": false,
-  "suggested_question": "can you explain qubits in simple terms?",
-  "llm_used": "groq"
-}
-```
+---
+
+## Modal Deployment ✅ COMPLETE
+
+### Configuration
+
+| Setting | Value |
+|---------|-------|
+| GPU | T4 (16GB VRAM) |
+| Free tier | $30/month |
+| Cold start | 3-4 seconds |
+| Inference | ~35-60 seconds total |
+| Volume | quantum-model-volume |
 
 ---
 
@@ -278,16 +282,28 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
+## Frontend Features ✅ COMPLETE
+
+### Model Selector
+- Dropdown in header (Groq vs Custom)
+- Toast notification when Custom selected
+
+### Health Check System
+- Pre-query health check on every request
+- Wake-up indicator for cold starts
+- Specific error after 10 failed attempts
+
+### Loading Indicators
+- Groq: "Thinking..."
+- Custom: Pipeline animation with stages
+
+### Error Handling
+- Retry button on failed queries
+- Timeout handling (30s Groq, 180s Custom)
+
+---
+
 ## Component Details
-
-### Generation: Custom Model
-
-| Setting | Value |
-|---------|-------|
-| Parameters | 125.8M |
-| Speed | ~50-80s per response |
-| temp | 0.2 |
-| top_k | 30 |
 
 ### Generation: Groq API ✅
 
@@ -295,7 +311,17 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 |---------|-------|
 | Model | llama-3.3-70b-versatile |
 | Free tier | 30 req/min, 14,400 req/day |
-| Speed | ~725ms per response |
+| Speed | ~2-3s per response |
+
+### Generation: Custom Model (Modal) ✅
+
+| Setting | Value |
+|---------|-------|
+| Parameters | 140M |
+| GPU | T4 (Modal) |
+| Speed | ~35-60s per response |
+| temp | 0.2 |
+| top_k | 30 |
 
 ### Embeddings: Voyage AI
 
@@ -319,32 +345,13 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
-## Frontend Features (Flask + Jinja)
-
-### Welcome Screen
-- Animated atom icon
-- 5 starter questions
-- Free-tier disclaimer (40-90s warning)
-
-### Chat Interface
-- User messages (blue, right-aligned)
-- AI messages (gray, left-aligned)
-- Response time display
-- Suggested follow-up button
-
-### Loading Indicator
-- Animated GIF
-- Rotating status messages (every 3s)
-- Patience reminder
-
----
-
 ## Cost Summary
 
 | Component | Monthly Cost |
 |-----------|--------------|
 | Railway (hosting) | $5 |
 | Groq API | $0 (free tier) |
+| Modal | $0 (free tier, $30 credit) |
 | Voyage AI | $0 (free tier) |
 | Neon | $0 (free tier) |
 | **Total** | **~$5/month** |
@@ -355,15 +362,17 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 ---
 
-## Deployment Issues Resolved (December 27, 2025)
+## Deployment Issues Resolved
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Model file 130 bytes | Git LFS pointer not pulled | Clone repo + `git lfs pull` in Dockerfile |
 | Tokenizer error | Version mismatch (0.15.0 vs 0.22.1) | Updated requirements.txt |
-| 502 errors | Gunicorn 30s default timeout | Set `--timeout 600` in Procfile |
-| Silent crashes | No logging | Added print statements (later removed) |
+| 502 errors | Gunicorn 30s default timeout | Set `--timeout 300` in Dockerfile |
+| Silent crashes | No logging | Added print statements |
 | Groq proxy error | groq==0.4.2 httpx issue | Updated to groq>=0.11.0 |
+| Modal tokenizer error | Wrong tokenizers version | Set tokenizers==0.22.1 in Modal |
+| Frontend 502 on cold start | Backend not ready | Added health check before every query |
 
 ---
 
@@ -373,15 +382,15 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 2. **Two-phase training works.** Books for prose, context Q&A for RAG usage.
 
-3. **125M params is the sweet spot.** 1.2M = gibberish, 125M = coherent.
+3. **140M params is the sweet spot.** 1.2M = gibberish, 140M = coherent.
 
 4. **Lower temperature = better.** temp=0.2, top_k=30 achieved 100% pass rate.
 
-5. **Lazy loading saves cost.** $2-3/month vs $6-8/month always loaded.
+5. **Modal for GPU inference.** Much faster than Railway CPU (~35-60s vs ~50-80s).
 
 6. **IVFFlat index can miss results.** Exact search more reliable.
 
-7. **Groq solves the speed problem.** ~725ms vs ~50-80s for custom model.
+7. **Groq solves the speed problem.** ~2-3s vs ~35-60s for custom model.
 
 8. **Extraction function matters.** rfind() grabbed wrong answer, find() fixed it.
 
@@ -397,13 +406,18 @@ IVFFlat approximate index was missing exact matches. Removed for exact search.
 
 14. **Gunicorn timeout must exceed response time.** 30s default too short for ML inference.
 
-15. **Abstract base class pattern works.** Clean separation between Groq and custom model.
+15. **Abstract base class pattern works.** Clean separation between Groq and Modal.
 
 16. **groq package version matters.** 0.4.2 incompatible, 0.11.0+ works.
 
 17. **Use --env-file for Docker.** Cleaner than passing -e for each variable.
 
+18. **Health check before every query.** Prevents 502 from sleeping servers.
+
+19. **Dockerfile timeout must match Procfile.** Both need 300s for custom model.
+
+20. **Model config inside .pt file.** QuantumLLM.load() extracts config automatically.
+
 ---
 
-*Document version: 17.0*
-*Last updated: December 27, 2025*
+*Document version: 18.0*

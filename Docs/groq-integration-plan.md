@@ -1,7 +1,8 @@
 # Groq Integration Implementation Plan
 
-**Date:** December 27, 2025  
-**Status:** ✅ COMPLETE  
+**Date:** December 27, 2025
+**Last Updated:** December 31, 2025
+**Status:** ✅ COMPLETE
 **Purpose:** Add Groq API as a fast LLM option alongside custom model
 
 ---
@@ -9,14 +10,14 @@
 ## Overview
 
 ### Goal
-Add Llama 3.3 70B Versatile via Groq API as a fast (~1-2s) alternative to the custom 125.8M model (~50-80s).
+Add Llama 3.3 70B Versatile via Groq API as a fast (~2-3s) alternative to the custom 140M model (~35-60s on Modal).
 
 ### Model Selection
 | Setting | Value |
 |---------|-------|
 | Provider | Groq (Free tier) |
 | Model | llama-3.3-70b-versatile |
-| Speed | ~725ms response time |
+| Speed | ~2-3s response time |
 | Cost | $0.59/M input, $0.79/M output |
 | Rate Limits | ~6,000 TPM, ~30 RPM |
 
@@ -24,19 +25,24 @@ Add Llama 3.3 70B Versatile via Groq API as a fast (~1-2s) alternative to the cu
 
 ## Architecture
 
+### Dual-Mode System
+
+| Mode | LLM | Host | Speed |
+|------|-----|------|-------|
+| Production | Groq API (Llama 3.3 70B) | Groq Cloud | ~2-3s |
+| Demo | Custom 140M | Modal (T4 GPU) | ~35-60s |
+
 ### Design Pattern
 Abstract Base Class with separate implementations per LLM.
 
 ### File Structure
 ```
 backend/scripts/
-├── retrieval.py          # unchanged
+├── retrieval.py          # Retriever class (Voyage AI + Neon)
 ├── base_inference.py     # BaseLLM abstract class
-├── inference.py          # QuantumInference(BaseLLM)
-└── groq_inference.py     # GroqInference(BaseLLM)
+├── groq_inference.py     # GroqInference(BaseLLM)
+└── modal_inference.py    # ModalInference (calls Modal API)
 ```
-
-Note: `pipeline.py` was deleted (unused).
 
 ### Class Diagram
 ```
@@ -47,9 +53,9 @@ Note: `pipeline.py` was deleted (unused).
                     │
         ┌───────────┴───────────┐
         │                       │
-QuantumInference          GroqInference
-(custom 125.8M)           (Groq API)
-name="custom"             name="groq"
+GroqInference            ModalInference
+(Groq API)               (Modal API)
+name="groq"              name="custom"
 ```
 
 ---
@@ -77,19 +83,19 @@ Content-Type: application/json
 ```json
 {
   "question": "What is a qubit?",
-  "use_groq": true
+  "model": "groq"
 }
 ```
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `question` | string | Yes | - | The question to ask |
-| `use_groq` | boolean | No | `false` | `true` = Groq API (~725ms), `false` = custom model (~50-80s) |
+| `model` | string | No | `"groq"` | `"groq"` = Groq API (~2-3s), `"custom"` = Modal API (~35-60s) |
 
 **Response (200 OK):**
 ```json
 {
-  "answer": "A qubit, short for quantum bit, is the basic unit of information in quantum computing. It's special because, unlike a classical bit that can only be 0 or 1, a qubit can be 0, 1, or both at the same time. This is possible due to a property called superposition, which gives quantum computers their potential power.",
+  "answer": "A qubit, short for quantum bit, is the basic unit of information in quantum computing...",
   "sources": [
     {
       "question": "is a qubit just a tiny particle?",
@@ -107,10 +113,9 @@ Content-Type: application/json
       "similarity": 0.7346
     }
   ],
-  "response_time_ms": 725,
-  "model_loaded_fresh": false,
+  "response_time_ms": 2500,
   "suggested_question": "can you explain qubits in simple terms?",
-  "llm_used": "groq"
+  "model_used": "groq"
 }
 ```
 
@@ -122,36 +127,14 @@ Content-Type: application/json
 | `sources[].source` | string | Data source: `"claude"`, `"stackexchange"`, or `"cot"` |
 | `sources[].similarity` | float | Cosine similarity score (0-1) |
 | `response_time_ms` | integer | Total response time in milliseconds |
-| `model_loaded_fresh` | boolean | `true` if custom model was just loaded (cold start) |
 | `suggested_question` | string or null | Suggested follow-up question |
-| `llm_used` | string | Which LLM was used: `"groq"` or `"custom"` |
+| `model_used` | string | Which LLM was used: `"groq"` or `"custom"` |
 
 **Error Response (500):**
 ```json
 {
   "detail": "Error message here"
 }
-```
-
-**Example (JavaScript):**
-```javascript
-const response = await fetch('http://localhost:8000/query', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    question: 'What is a qubit?',
-    use_groq: true
-  })
-});
-
-const data = await response.json();
-console.log(data.answer);
-console.log(data.llm_used);  // "groq"
-```
-
-**Example (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri http://localhost:8000/query -Method POST -ContentType "application/json" -Body '{"question": "What is a qubit?", "use_groq": true}'
 ```
 
 ---
@@ -164,28 +147,16 @@ Check API status and LLM availability.
 ```json
 {
   "status": "ok",
-  "model_loaded": false,
-  "idle_seconds": null,
-  "groq_available": true
+  "groq_available": true,
+  "modal_available": true
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `status` | string | Always `"ok"` if API is running |
-| `model_loaded` | boolean | Whether custom model is currently in memory |
-| `idle_seconds` | float or null | Seconds since last custom model use (null if not loaded) |
 | `groq_available` | boolean | Whether Groq API key is configured |
-
-**Example (JavaScript):**
-```javascript
-const response = await fetch('http://localhost:8000/health');
-const data = await response.json();
-
-if (data.groq_available) {
-  // Can use use_groq: true
-}
-```
+| `modal_available` | boolean | Whether Modal URL is configured |
 
 ---
 
@@ -216,18 +187,7 @@ class BaseLLM(ABC):
 
 ---
 
-### 2. Updated QuantumInference (`inference.py`) ✅
-
-Changes:
-- Inherits from `BaseLLM`
-- `generate()` accepts `context` and `question` separately
-- Builds flat prompt internally: `f"Context: {context} Question: {question} Answer:"`
-- `name` property returns `"custom"`
-- Keeps `extract_answer()` logic (parsing "Answer:" and stopping at markers)
-
----
-
-### 3. GroqInference (`groq_inference.py`) ✅
+### 2. GroqInference (`groq_inference.py`) ✅
 
 ```python
 class GroqInference(BaseLLM):
@@ -264,7 +224,32 @@ class GroqInference(BaseLLM):
 
 ---
 
-### 4. Config Updates (`config.py`) ✅
+### 3. ModalInference (`modal_inference.py`) ✅
+
+```python
+class ModalInference(BaseLLM):
+    @property
+    def name(self) -> str:
+        return "custom"
+    
+    def __init__(self):
+        self.modal_url = MODAL_URL
+    
+    def generate(self, context: str, question: str) -> str:
+        response = requests.post(
+            self.modal_url,
+            json={"context": context, "question": question},
+            timeout=120
+        )
+        return response.json()["answer"]
+    
+    def extract_answer(self, generated_text: str) -> str:
+        return generated_text.strip()
+```
+
+---
+
+### 4. Config (`config.py`) ✅
 
 ```python
 # Groq settings
@@ -272,9 +257,10 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 GROQ_TEMPERATURE = 0.2
 GROQ_MAX_TOKENS = 300
-```
 
-GROQ_API_KEY is optional (only validated when Groq mode is used).
+# Modal settings
+MODAL_URL = os.getenv("MODAL_URL", "https://perez-eduardo--quantum-llm-query.modal.run")
+```
 
 ---
 
@@ -295,34 +281,19 @@ Note: Version 0.4.2 had compatibility issues with httpx proxies.
 VOYAGE_API_KEY=your_voyage_key
 DATABASE_URL=your_neon_url
 GROQ_API_KEY=your_groq_key
+MODAL_URL=https://perez-eduardo--quantum-llm-query.modal.run
 ```
 
 **Railway:**
-Add `GROQ_API_KEY` to backend service environment variables.
+- `GROQ_API_KEY` ✅ Configured
+- `MODAL_URL` ✅ Configured
 
 ---
 
-## Test Results (December 27, 2025) ✅
-
-### Docker Local Testing
-
-```powershell
-docker build -f backend/Dockerfile -t quantum-backend .
-docker run -p 8000:8000 --env-file .env -e PORT=8000 quantum-backend
-```
-
-### Health Check
-```json
-{
-  "status": "ok",
-  "model_loaded": false,
-  "idle_seconds": null,
-  "groq_available": true
-}
-```
+## Test Results ✅
 
 ### Groq Response (20 queries tested)
-All passed with ~725ms average response time.
+All passed with ~2-3s average response time.
 
 ### Test Queries Run
 All 20 quantum computing questions passed:
@@ -346,7 +317,6 @@ All 20 quantum computing questions passed:
 - What is a universal quantum gate set?
 - What is measurement in quantum computing?
 - How do quantum computers differ from classical computers?
-- What are the applications of quantum computing?
 
 ---
 
@@ -355,27 +325,29 @@ All 20 quantum computing questions passed:
 | Step | Task | Status |
 |------|------|--------|
 | 1 | Create abstract base class | ✅ Done |
-| 2 | Update custom inference to inherit | ✅ Done |
-| 3 | Create Groq inference class | ✅ Done |
+| 2 | Create Groq inference class | ✅ Done |
+| 3 | Create Modal inference class | ✅ Done |
 | 4 | Add Groq config | ✅ Done |
-| 5 | Update API request/response models | ✅ Done |
-| 6 | Update `/query` endpoint logic | ✅ Done |
-| 7 | Add groq dependency | ✅ Done |
-| 8 | Add GROQ_API_KEY to `.env` | ✅ Done |
-| 9 | Test locally with Docker | ✅ Done |
-| 10 | Update Railway env vars | ⬜ Pending |
-| 11 | Deploy | ⬜ Pending |
+| 5 | Add Modal config | ✅ Done |
+| 6 | Update API request/response models | ✅ Done |
+| 7 | Update `/query` endpoint logic | ✅ Done |
+| 8 | Add groq dependency | ✅ Done |
+| 9 | Add GROQ_API_KEY to Railway | ✅ Done |
+| 10 | Add MODAL_URL to Railway | ✅ Done |
+| 11 | Deploy | ✅ Done |
+| 12 | Add frontend model selector | ✅ Done |
 
 ---
 
-## Future Considerations
+## Frontend Integration ✅
 
-1. **Frontend toggle:** Add UI switch to select mode
-2. **Default mode config:** Make default mode configurable via env var
-3. **Rate limiting:** Handle Groq 429 errors gracefully
-4. **Fallback:** If Groq fails, optionally fall back to custom model
+The frontend now includes:
+- Model selector dropdown (Groq vs Custom)
+- Sends `model: "groq"` or `model: "custom"` to backend
+- Different timeout handling (30s for Groq, 180s for Custom)
+- Toast notification when Custom is selected
+- Pipeline animation for Custom model loading
 
 ---
 
-*Document version: 2.1*
-*Last updated: December 27, 2025*
+*Document version: 3.0*
