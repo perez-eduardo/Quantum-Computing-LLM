@@ -372,6 +372,40 @@ body {
     margin-top: 8px;
 }
 
+/* =============================================================================
+   RETRY BUTTON (for error messages)
+   ============================================================================= */
+.message__retry {
+    margin-top: 12px;
+    text-align: center;
+}
+
+.retry__button {
+    background-color: transparent;
+    border: 1px solid #f0f0f0;
+    color: #f0f0f0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.retry__button:hover {
+    background-color: #f0f0f0;
+    color: #802020;
+}
+
+.retry__button i {
+    font-size: 0.8rem;
+}
+
+/* =============================================================================
+   SUGGESTED BUTTON
+   ============================================================================= */
 .suggested {
     margin-top: 12px;
 }

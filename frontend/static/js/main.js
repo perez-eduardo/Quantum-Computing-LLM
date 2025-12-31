@@ -5,6 +5,7 @@ let isLoading = false;
 let hasMessages = false;
 let selectedModel = 'groq';
 let dropdownOpen = false;
+let lastQuestion = ''; // Store last question for retry
 
 // Timer tracking for cold start detection
 let lastActivityTime = Date.now();
@@ -149,11 +150,31 @@ function hideSuggestedButtons(q) {
 }
 
 // =============================================================================
+// RETRY FUNCTION
+// =============================================================================
+function retryLastQuestion() {
+    if (lastQuestion && !isLoading) {
+        // Remove the error message
+        const errorMessages = document.querySelectorAll('.message--error');
+        errorMessages.forEach(msg => msg.remove());
+        
+        // Retry the question
+        sendQuestion(lastQuestion, true); // true = isRetry
+    }
+}
+
+// =============================================================================
 // MAIN QUERY FUNCTION
 // =============================================================================
-async function sendQuestion(question) {
+async function sendQuestion(question, isRetry = false) {
     if (isLoading) return;
-    hideSuggestedButtons(question);
+    
+    // Store for retry
+    lastQuestion = question;
+    
+    if (!isRetry) {
+        hideSuggestedButtons(question);
+    }
 
     if (!hasMessages) {
         welcome.style.display = 'none';
@@ -161,7 +182,10 @@ async function sendQuestion(question) {
         hasMessages = true;
     }
 
-    addMessage('user', question);
+    if (!isRetry) {
+        addMessage('user', question);
+    }
+    
     setLoading(true);
     playVideo();
     
@@ -204,7 +228,7 @@ async function sendQuestion(question) {
             lastActivityTime = Date.now();
             addMessage('ai', data.answer, data.response_time_ms, data.suggested_question, data.model_used);
         } else {
-            addMessage('error', data.error || 'Something went wrong.');
+            addMessage('error', data.error || 'Something went wrong.', true);
         }
     } catch (error) {
         loadingEl.remove();
@@ -212,12 +236,12 @@ async function sendQuestion(question) {
         
         if (error.name === 'AbortError') {
             if (selectedModel === 'custom') {
-                addMessage('error', 'Request timed out. The custom model may still be loading. Please try again.');
+                addMessage('error', 'Request timed out. The custom model may still be loading. Please try again.', true);
             } else {
-                addMessage('error', 'Request timed out. Please try again.');
+                addMessage('error', 'Request timed out. Please try again.', true);
             }
         } else {
-            addMessage('error', 'Failed to connect.');
+            addMessage('error', 'Failed to connect.', true);
         }
     } finally {
         setLoading(false);
@@ -376,11 +400,30 @@ function addMessage(type, content, responseTime = null, suggestedQuestion = null
             if (suggestedDiv) { suggestedDiv.style.transition = 'opacity 0.3s'; suggestedDiv.style.opacity = '1'; }
             pauseVideo();
         });
+    } else if (type === 'error') {
+        // Check if showRetry is passed (3rd param for error type)
+        const showRetry = responseTime === true;
+        
+        let innerHTML = `<div class="message__content">${escapeHtml(content)}</div>`;
+        
+        if (showRetry && lastQuestion) {
+            innerHTML += `
+                <div class="message__retry">
+                    <button class="retry__button" onclick="retryLastQuestion()">
+                        <i class="fa-solid fa-rotate-right"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+        
+        div.innerHTML = innerHTML;
+        messages.appendChild(div);
+        scrollToBottom();
+        pauseVideo();
     } else {
         div.innerHTML = `<div class="message__content">${escapeHtml(content)}</div>`;
         messages.appendChild(div);
         scrollToBottom();
-        if (type === 'error') pauseVideo();
     }
 }
 
