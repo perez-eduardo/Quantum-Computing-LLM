@@ -9,7 +9,7 @@ let lastQuestion = ''; // Store last question for retry
 
 // Timer tracking for cold start detection
 let lastActivityTime = Date.now();
-const idleThreshold = 300000; // 5 minutes in ms (Modal sleeps at ~5 min)
+const idleThreshold = 300000; // 5 minutes in ms (servers sleep after ~5 min)
 
 // Pipeline steps for custom model loading animation
 const PIPELINE_STEPS = [
@@ -164,6 +164,38 @@ function retryLastQuestion() {
 }
 
 // =============================================================================
+// BACKEND HEALTH CHECK
+// =============================================================================
+async function ensureBackendAwake() {
+    const maxAttempts = 10;
+    const retryDelay = 2000; // 2 seconds between retries
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const res = await fetch('/api/health', { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (res.ok) {
+                lastActivityTime = Date.now();
+                return { success: true };
+            }
+        } catch (e) {
+            // Backend still waking up, wait and retry
+            if (attempt < maxAttempts) {
+                await new Promise(r => setTimeout(r, retryDelay));
+            }
+        }
+    }
+    return { 
+        success: false, 
+        error: 'Backend server did not respond after 10 attempts (~20 seconds). The server may be down or experiencing issues. Please try again in a few minutes.'
+    };
+}
+
+// =============================================================================
 // MAIN QUERY FUNCTION
 // =============================================================================
 async function sendQuestion(question, isRetry = false) {
@@ -189,20 +221,36 @@ async function sendQuestion(question, isRetry = false) {
     setLoading(true);
     playVideo();
     
-    // Determine timeout based on model and idle state
+    // Always check backend health first
+    const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
+    
+    // Show appropriate loading indicator for health check
+    let loadingEl = isIdle 
+        ? addWakeUpLoadingIndicator() 
+        : addHealthCheckLoadingIndicator();
+    
+    const healthResult = await ensureBackendAwake();
+    
+    if (!healthResult.success) {
+        loadingEl.remove();
+        addMessage('error', healthResult.error, true);
+        setLoading(false);
+        return;
+    }
+    
+    // Health check passed, now show query loading indicator
+    loadingEl.remove();
+    loadingEl = selectedModel === 'groq' 
+        ? addGroqLoadingIndicator() 
+        : addCustomLoadingIndicator();
+    
+    // Determine timeout based on model
     let timeout;
     if (selectedModel === 'groq') {
         timeout = 30000; // 30 seconds for Groq
     } else {
-        // Custom model: check if cold start
-        const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
-        timeout = isIdle ? 240000 : 180000; // 4 min cold, 3 min warm
+        timeout = 180000; // 3 min for custom model
     }
-    
-    // Add appropriate loading indicator
-    const loadingEl = selectedModel === 'groq' 
-        ? addGroqLoadingIndicator() 
-        : addCustomLoadingIndicator();
 
     try {
         const controller = new AbortController();
@@ -251,6 +299,39 @@ async function sendQuestion(question, isRetry = false) {
 // =============================================================================
 // LOADING INDICATORS
 // =============================================================================
+function addWakeUpLoadingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'loading';
+    div.innerHTML = `
+        <div class="loading__bubble">
+            <span class="loading__message">Waking up backend server</span>
+            <span class="loading__dots"></span>
+        </div>
+        <div class="loading__subtext">
+            <i class="fa-solid fa-clock"></i> Server was idle, cold start may take 10-15 seconds
+        </div>
+    `;
+    messages.appendChild(div);
+    scrollToBottom();
+    startDots();
+    return div;
+}
+
+function addHealthCheckLoadingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'loading';
+    div.innerHTML = `
+        <div class="loading__bubble">
+            <span class="loading__message">Connecting to backend</span>
+            <span class="loading__dots"></span>
+        </div>
+    `;
+    messages.appendChild(div);
+    scrollToBottom();
+    startDots();
+    return div;
+}
+
 function addGroqLoadingIndicator() {
     const div = document.createElement('div');
     div.className = 'loading';
@@ -262,14 +343,11 @@ function addGroqLoadingIndicator() {
 }
 
 function addCustomLoadingIndicator() {
-    const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
-    const initialText = isIdle ? "Waking up Modal server (cold start)" : PIPELINE_STEPS[0].text;
-    
     const div = document.createElement('div');
     div.className = 'loading loading--custom';
     div.innerHTML = `
         <div class="loading__bubble">
-            <span class="loading__message" id="pipeline-message">${initialText}</span>
+            <span class="loading__message" id="pipeline-message">${PIPELINE_STEPS[0].text}</span>
             <span class="loading__dots"></span>
         </div>
         <div class="loading__subtext">
@@ -279,17 +357,12 @@ function addCustomLoadingIndicator() {
     messages.appendChild(div);
     scrollToBottom();
     startDots();
-    
-    // Start pipeline animation after initial delay (longer if cold start)
-    const initialDelay = isIdle ? 15000 : 0;
-    setTimeout(() => {
-        startPipelineAnimation();
-    }, initialDelay);
-    
+    startPipelineAnimation();
     return div;
 }
 
 function startDots() {
+    stopDots(); // Clear any existing interval first
     let count = 0;
     dotsInterval = setInterval(() => {
         const el = document.querySelector('.loading__dots');
