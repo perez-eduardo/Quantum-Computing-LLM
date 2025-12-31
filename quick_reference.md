@@ -45,6 +45,15 @@ cd ~/hpc-share/quantum-llm && source venv/bin/activate
 
 
 
+### Modal
+
+
+python -m venv venv
+modal deploy inference.py
+modal app logs quantum-llm
+curl https://perez-eduardo--quantum-llm-health.modal.run
+
+Invoke-WebRequest -Uri "https://perez-eduardo--quantum-llm-query.modal.run" -Method POST -ContentType "application/json" -Body '{"context": "Q: What is superposition? A: Superposition allows a qubit to exist in multiple states simultaneously.", "question": "What is a qubit?"}'
 
 ### Voyage api
 pa-kj1_wQwgbrPmPTLd8YFJ9x8XUB8CUv0NNNCDLfiawKl

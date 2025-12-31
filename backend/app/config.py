@@ -8,6 +8,7 @@ load_dotenv()
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MODAL_URL = os.getenv("MODAL_URL", "https://perez-eduardo--quantum-llm-query.modal.run")
 
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 GROQ_TEMPERATURE = 0.2

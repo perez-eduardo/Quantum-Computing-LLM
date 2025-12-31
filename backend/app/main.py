@@ -1,4 +1,4 @@
-"""FastAPI application for Quantum Computing LLM (Groq-only)."""
+"""FastAPI application for Quantum Computing LLM (Dual-mode: Groq + Custom)."""
 
 import sys
 import time
@@ -15,12 +15,15 @@ sys.path.insert(0, str(SCRIPTS_PATH))
 
 from retrieval import Retriever
 from groq_inference import GroqInference
+from modal_inference import ModalInference
 from app.config import (
-    GROQ_API_KEY, GROQ_MODEL_NAME, GROQ_TEMPERATURE, GROQ_MAX_TOKENS, validate_config
+    GROQ_API_KEY, GROQ_MODEL_NAME, GROQ_TEMPERATURE, GROQ_MAX_TOKENS,
+    MODAL_URL, validate_config
 )
 
 retriever: Optional[Retriever] = None
 groq_inference: Optional[GroqInference] = None
+modal_inference: Optional[ModalInference] = None
 
 
 def get_groq() -> GroqInference:
@@ -33,6 +36,13 @@ def get_groq() -> GroqInference:
             max_tokens=GROQ_MAX_TOKENS
         )
     return groq_inference
+
+
+def get_modal() -> ModalInference:
+    global modal_inference
+    if modal_inference is None:
+        modal_inference = ModalInference(url=MODAL_URL)
+    return modal_inference
 
 
 def text_similarity(a: str, b: str) -> float:
@@ -74,16 +84,18 @@ async def lifespan(app: FastAPI):
     print("Starting Quantum Computing LLM API...")
     validate_config()
     retriever = Retriever()
+    print(f"Modal URL: {MODAL_URL}")
     print("Ready")
     yield
     print("Shutdown")
 
 
-app = FastAPI(title="Quantum Computing LLM API", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="Quantum Computing LLM API", version="4.0.0", lifespan=lifespan)
 
 
 class QueryRequest(BaseModel):
     question: str
+    model: str = "groq"  # "groq" or "custom"
 
 
 class Source(BaseModel):
@@ -93,10 +105,12 @@ class Source(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    model_config = {'protected_namespaces': ()}
     answer: str
     sources: List[Source]
     response_time_ms: int
     suggested_question: Optional[str]
+    model_used: str
 
 
 class HealthResponse(BaseModel):
@@ -125,7 +139,17 @@ async def query(request: QueryRequest):
         raise HTTPException(status_code=404, detail="No relevant context found")
     
     context = build_context(results, top_k=3)
-    llm = get_groq()
+    
+    # Route to appropriate model
+    if request.model == "custom":
+        print(f"Using Custom Model (Modal)")
+        llm = get_modal()
+        model_used = "custom"
+    else:
+        print(f"Using Groq")
+        llm = get_groq()
+        model_used = "groq"
+    
     answer = llm.generate(context, request.question)
     suggested = get_suggested_question(request.question, answer, results)
     elapsed_ms = int((time.time() - start) * 1000)
@@ -139,5 +163,7 @@ async def query(request: QueryRequest):
         answer=answer,
         sources=sources,
         response_time_ms=elapsed_ms,
-        suggested_question=suggested
+        suggested_question=suggested,
+        model_used=model_used
     )
+

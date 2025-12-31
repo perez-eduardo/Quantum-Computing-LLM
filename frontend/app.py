@@ -16,7 +16,11 @@ def index():
 @app.route("/api/query", methods=["POST"])
 def query():
     try:
-        response = requests.post(f"{BACKEND_URL}/query", json=request.get_json(), timeout=30)
+        response = requests.post(
+            f"{BACKEND_URL}/query", 
+            json=request.get_json(), 
+            timeout=300  # 5 min for custom model
+        )
         return jsonify(response.json()), response.status_code
     except requests.exceptions.Timeout:
         return jsonify({"error": "Request timed out. Please try again."}), 504

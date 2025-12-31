@@ -1,13 +1,112 @@
+// =============================================================================
+// STATE
+// =============================================================================
 let isLoading = false;
 let hasMessages = false;
+let selectedModel = 'groq';
+let dropdownOpen = false;
 
+// Timer tracking for cold start detection
+let lastActivityTime = Date.now();
+const idleThreshold = 300000; // 5 minutes in ms (Modal sleeps at ~5 min)
+
+// Pipeline steps for custom model loading animation
+const PIPELINE_STEPS = [
+    { text: "Embedding your question with Voyage AI", duration: 11 },
+    { text: "Searching knowledge base (28,071 Q&A pairs)", duration: 11 },
+    { text: "Retrieved relevant context from Neon database", duration: 11 },
+    { text: "Ranking results by relevance", duration: 11 },
+    { text: "Building prompt with context", duration: 11 },
+    { text: "Loading 140M parameter model", duration: 11 },
+    { text: "Generating response", duration: 60 }
+];
+
+// Animation intervals
+let dotsInterval = null;
+let pipelineInterval = null;
+let pipelineStepIndex = 0;
+
+// =============================================================================
+// DOM ELEMENTS
+// =============================================================================
 const chat = document.getElementById('chat');
 const welcome = document.getElementById('welcome');
 const messages = document.getElementById('messages');
 const inputField = document.getElementById('input-field');
 const sendBtn = document.getElementById('send-btn');
 const loadingVideo = document.getElementById('loading-video');
+const customToast = document.getElementById('custom-toast');
 
+// Track if toast has been shown
+let toastShown = false;
+
+// =============================================================================
+// MODEL SELECTOR
+// =============================================================================
+function toggleModelDropdown(e) {
+    if (e) e.stopPropagation();
+    
+    const dropdown = document.getElementById('model-dropdown');
+    const chevron = document.getElementById('model-chevron');
+    dropdownOpen = !dropdownOpen;
+    
+    if (dropdownOpen) {
+        dropdown.classList.add('model-selector__dropdown--open');
+        chevron.style.transform = 'rotate(180deg)';
+    } else {
+        dropdown.classList.remove('model-selector__dropdown--open');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+function selectModel(model) {
+    selectedModel = model;
+    
+    const labelEl = document.getElementById('selected-model-label');
+    const checkGroq = document.getElementById('check-groq');
+    const checkCustom = document.getElementById('check-custom');
+    
+    if (model === 'groq') {
+        labelEl.textContent = 'Groq';
+        checkGroq.style.display = 'inline';
+        checkCustom.style.display = 'none';
+    } else {
+        labelEl.textContent = 'Custom';
+        checkGroq.style.display = 'none';
+        checkCustom.style.display = 'inline';
+        
+        // Show toast only once per page load
+        if (!toastShown) {
+            showCustomToast();
+            toastShown = true;
+        }
+    }
+    
+    toggleModelDropdown();
+}
+
+function showCustomToast() {
+    customToast.classList.add('toast--visible');
+    customToast.classList.remove('toast--fading');
+    
+    // Stay visible for 5 seconds, then fade out over 3 seconds
+    setTimeout(() => {
+        customToast.classList.remove('toast--visible');
+        customToast.classList.add('toast--fading');
+    }, 5000);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const selector = document.getElementById('model-selector');
+    if (dropdownOpen && !selector.contains(e.target)) {
+        toggleModelDropdown();
+    }
+});
+
+// =============================================================================
+// MODAL FUNCTIONS
+// =============================================================================
 function openModal(id) {
     document.getElementById(id).classList.add('modal--open');
     document.body.style.overflow = 'hidden';
@@ -29,6 +128,9 @@ document.addEventListener('keydown', e => {
     }
 });
 
+// =============================================================================
+// FORM HANDLING
+// =============================================================================
 function handleSubmit(e) {
     e.preventDefault();
     const q = inputField.value.trim();
@@ -46,6 +148,9 @@ function hideSuggestedButtons(q) {
     });
 }
 
+// =============================================================================
+// MAIN QUERY FUNCTION
+// =============================================================================
 async function sendQuestion(question) {
     if (isLoading) return;
     hideSuggestedButtons(question);
@@ -59,37 +164,172 @@ async function sendQuestion(question) {
     addMessage('user', question);
     setLoading(true);
     playVideo();
-    const loadingEl = addLoadingIndicator();
+    
+    // Determine timeout based on model and idle state
+    let timeout;
+    if (selectedModel === 'groq') {
+        timeout = 30000; // 30 seconds for Groq
+    } else {
+        // Custom model: check if cold start
+        const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
+        timeout = isIdle ? 240000 : 180000; // 4 min cold, 3 min warm
+    }
+    
+    // Add appropriate loading indicator
+    const loadingEl = selectedModel === 'groq' 
+        ? addGroqLoadingIndicator() 
+        : addCustomLoadingIndicator();
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
         
         const response = await fetch('/api/query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question }),
+            body: JSON.stringify({ 
+                question,
+                model: selectedModel
+            }),
             signal: controller.signal
         });
         
         clearTimeout(timeoutId);
         const data = await response.json();
         loadingEl.remove();
+        stopPipelineAnimation();
 
         if (response.ok) {
-            addMessage('ai', data.answer, data.response_time_ms, data.suggested_question);
+            // Update activity time on success
+            lastActivityTime = Date.now();
+            addMessage('ai', data.answer, data.response_time_ms, data.suggested_question, data.model_used);
         } else {
             addMessage('error', data.error || 'Something went wrong.');
         }
     } catch (error) {
         loadingEl.remove();
-        addMessage('error', error.name === 'AbortError' ? 'Request timed out.' : 'Failed to connect.');
+        stopPipelineAnimation();
+        
+        if (error.name === 'AbortError') {
+            if (selectedModel === 'custom') {
+                addMessage('error', 'Request timed out. The custom model may still be loading. Please try again.');
+            } else {
+                addMessage('error', 'Request timed out. Please try again.');
+            }
+        } else {
+            addMessage('error', 'Failed to connect.');
+        }
     } finally {
         setLoading(false);
     }
 }
 
-function addMessage(type, content, responseTime = null, suggestedQuestion = null) {
+// =============================================================================
+// LOADING INDICATORS
+// =============================================================================
+function addGroqLoadingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'loading';
+    div.innerHTML = `<div class="loading__bubble"><span class="loading__message">Thinking</span><span class="loading__dots"></span></div>`;
+    messages.appendChild(div);
+    scrollToBottom();
+    startDots();
+    return div;
+}
+
+function addCustomLoadingIndicator() {
+    const isIdle = (Date.now() - lastActivityTime) > idleThreshold;
+    const initialText = isIdle ? "Waking up Modal server (cold start)" : PIPELINE_STEPS[0].text;
+    
+    const div = document.createElement('div');
+    div.className = 'loading loading--custom';
+    div.innerHTML = `
+        <div class="loading__bubble">
+            <span class="loading__message" id="pipeline-message">${initialText}</span>
+            <span class="loading__dots"></span>
+        </div>
+        <div class="loading__subtext">
+            <i class="fa-solid fa-hourglass-half"></i> Custom model responses typically take 1-2 minutes
+        </div>
+    `;
+    messages.appendChild(div);
+    scrollToBottom();
+    startDots();
+    
+    // Start pipeline animation after initial delay (longer if cold start)
+    const initialDelay = isIdle ? 15000 : 0;
+    setTimeout(() => {
+        startPipelineAnimation();
+    }, initialDelay);
+    
+    return div;
+}
+
+function startDots() {
+    let count = 0;
+    dotsInterval = setInterval(() => {
+        const el = document.querySelector('.loading__dots');
+        if (el) el.textContent = '.'.repeat(count = (count + 1) % 4);
+    }, 400);
+}
+
+function stopDots() {
+    if (dotsInterval) { 
+        clearInterval(dotsInterval); 
+        dotsInterval = null; 
+    }
+}
+
+function startPipelineAnimation() {
+    pipelineStepIndex = 0;
+    let elapsed = 0;
+    
+    pipelineInterval = setInterval(() => {
+        elapsed += 1000;
+        
+        // Find current step based on elapsed time
+        let totalDuration = 0;
+        for (let i = 0; i < PIPELINE_STEPS.length; i++) {
+            totalDuration += PIPELINE_STEPS[i].duration * 1000;
+            if (elapsed < totalDuration) {
+                if (pipelineStepIndex !== i) {
+                    pipelineStepIndex = i;
+                    updatePipelineMessage(PIPELINE_STEPS[i].text);
+                }
+                break;
+            }
+        }
+        
+        // Loop back if we've gone through all steps
+        if (elapsed >= totalDuration) {
+            elapsed = 0;
+            pipelineStepIndex = 0;
+        }
+    }, 1000);
+}
+
+function updatePipelineMessage(text) {
+    const el = document.getElementById('pipeline-message');
+    if (el) {
+        el.style.opacity = '0';
+        setTimeout(() => {
+            el.textContent = text;
+            el.style.opacity = '1';
+        }, 200);
+    }
+}
+
+function stopPipelineAnimation() {
+    if (pipelineInterval) {
+        clearInterval(pipelineInterval);
+        pipelineInterval = null;
+    }
+}
+
+// =============================================================================
+// MESSAGE FUNCTIONS
+// =============================================================================
+function addMessage(type, content, responseTime = null, suggestedQuestion = null, modelUsed = null) {
     const div = document.createElement('div');
     div.className = `message message--${type}`;
 
@@ -100,11 +340,19 @@ function addMessage(type, content, responseTime = null, suggestedQuestion = null
 
         let metaDiv = null, suggestedDiv = null;
 
-        if (responseTime) {
+        if (responseTime || modelUsed) {
             metaDiv = document.createElement('div');
             metaDiv.className = 'message__meta';
             metaDiv.style.opacity = '0';
-            metaDiv.textContent = `Response time: ${(responseTime / 1000).toFixed(1)}s`;
+            
+            let metaText = '';
+            if (responseTime) {
+                metaText += `${(responseTime / 1000).toFixed(1)}s`;
+            }
+            if (modelUsed) {
+                metaText += metaText ? ` · ${modelUsed}` : modelUsed;
+            }
+            metaDiv.textContent = metaText;
             div.appendChild(metaDiv);
         }
 
@@ -147,41 +395,35 @@ function typeText(el, text, cb) {
     })();
 }
 
-let dotsInterval = null;
-
-function addLoadingIndicator() {
-    const div = document.createElement('div');
-    div.className = 'loading';
-    div.innerHTML = `<div class="loading__bubble"><span class="loading__message">Thinking</span><span class="loading__dots"></span></div>`;
-    messages.appendChild(div);
-    scrollToBottom();
-    startDots();
-    return div;
+// =============================================================================
+// VIDEO CONTROLS
+// =============================================================================
+function playVideo() { 
+    loadingVideo.play(); 
+    loadingVideo.classList.remove('loading__video--paused'); 
 }
 
-function startDots() {
-    let count = 0;
-    dotsInterval = setInterval(() => {
-        const el = document.querySelector('.loading__dots');
-        if (el) el.textContent = '.'.repeat(count = (count + 1) % 4);
-    }, 400);
+function pauseVideo() { 
+    loadingVideo.pause(); 
+    loadingVideo.classList.add('loading__video--paused'); 
 }
 
-function stopDots() {
-    if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; }
-}
-
-function playVideo() { loadingVideo.play(); loadingVideo.classList.remove('loading__video--paused'); }
-function pauseVideo() { loadingVideo.pause(); loadingVideo.classList.add('loading__video--paused'); }
-
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
 function setLoading(loading) {
     isLoading = loading;
     inputField.disabled = loading;
     sendBtn.disabled = loading;
-    if (!loading) stopDots();
+    if (!loading) {
+        stopDots();
+        stopPipelineAnimation();
+    }
 }
 
-function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
+function scrollToBottom() { 
+    chat.scrollTop = chat.scrollHeight; 
+}
 
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -189,7 +431,9 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Startup
+// =============================================================================
+// STARTUP / BACKEND AVAILABILITY CHECK
+// =============================================================================
 const startupScreen = document.getElementById('startup');
 const startupError = document.getElementById('startup-error');
 const startupText = document.getElementById('startup-text');
@@ -197,6 +441,7 @@ const chatContainer = document.getElementById('chat');
 const inputForm = document.getElementById('input-form');
 
 let startupDotsInterval = null;
+const maxCheckTime = 30000; // 30 seconds for cold start
 
 function startStartupDots() {
     let count = 0;
@@ -208,7 +453,10 @@ function startStartupDots() {
 }
 
 function stopStartupDots() {
-    if (startupDotsInterval) { clearInterval(startupDotsInterval); startupDotsInterval = null; }
+    if (startupDotsInterval) { 
+        clearInterval(startupDotsInterval); 
+        startupDotsInterval = null; 
+    }
 }
 
 async function checkBackendAvailability() {
@@ -217,20 +465,23 @@ async function checkBackendAvailability() {
     startStartupDots();
     
     const start = Date.now();
-    while (Date.now() - start < 15000) {
+    while (Date.now() - start < maxCheckTime) {
         try {
             const res = await Promise.race([
                 fetch('/api/health'),
-                new Promise((_, rej) => setTimeout(() => rej(), 5000))
+                new Promise((_, rej) => setTimeout(() => rej(), 10000))
             ]);
             if (res.ok) {
                 stopStartupDots();
                 startupScreen.style.display = 'none';
                 chatContainer.style.display = 'flex';
                 inputForm.style.display = 'flex';
+                lastActivityTime = Date.now(); // Server is awake
                 return;
             }
-        } catch { await new Promise(r => setTimeout(r, 500)); }
+        } catch { 
+            await new Promise(r => setTimeout(r, 500)); 
+        }
     }
     
     stopStartupDots();
@@ -238,4 +489,7 @@ async function checkBackendAvailability() {
     startupError.style.display = 'flex';
 }
 
+// =============================================================================
+// INITIALIZE
+// =============================================================================
 checkBackendAvailability();
