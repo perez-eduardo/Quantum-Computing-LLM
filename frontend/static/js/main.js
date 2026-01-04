@@ -68,11 +68,11 @@ function selectModel(model) {
     const checkCustom = document.getElementById('check-custom');
     
     if (model === 'groq') {
-        labelEl.textContent = 'Groq';
+        labelEl.textContent = 'Groq API';
         checkGroq.style.display = 'inline';
         checkCustom.style.display = 'none';
     } else {
-        labelEl.textContent = 'Custom';
+        labelEl.textContent = 'Custom Model';
         checkGroq.style.display = 'none';
         checkCustom.style.display = 'inline';
         
