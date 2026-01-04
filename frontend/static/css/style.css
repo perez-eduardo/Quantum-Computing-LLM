@@ -67,6 +67,7 @@ body {
     display: flex;
     justify-content: center;
     gap: 16px;
+    padding-left: 62px;
 }
 
 .header__link {

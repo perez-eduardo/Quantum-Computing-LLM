@@ -39,8 +39,19 @@
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="header__logo">
                 <div class="header__text">
                     <h1>Quantum Compute Chat</h1>
-                    <p class="header__subtitle">Powered by Custom 140M Model + Groq API<br>
-                    <a href="https://github.com/perez-eduardo/Quantum-Computing-Chat" target="_blank" class="header__link">GitHub Repository</a></p>
+                    <p class="header__subtitle">Powered by Custom 140M Model + Groq API</p>
+                </div>
+                </div>
+                <div class="header__links">
+                    <a href="https://github.com/perez-eduardo/Quantum-Computing-Chat" target="_blank" class="header__link">
+                        <i class="fa-brands fa-github"></i> GitHub
+                    </a>
+                    <a href="#" class="header__link" onclick="openModal('models-modal'); return false;">
+                        <i class="fa-solid fa-microchip"></i> Models
+                    </a>
+                    <a href="#" class="header__link" onclick="openModal('about-modal'); return false;">
+                        <i class="fa-solid fa-circle-info"></i> About
+                    </a>
                 </div>
             </div>
             <div class="header__links">
