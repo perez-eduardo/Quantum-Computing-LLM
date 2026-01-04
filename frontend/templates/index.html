@@ -11,7 +11,6 @@
 <body>
     <div class="app">
         <header class="header">
-            <!-- Model Selector (top-left, aligned with title) -->
             <div class="model-selector" id="model-selector">
                 <button class="model-selector__button" id="model-selector-btn" onclick="toggleModelDropdown(event)">
                     <span class="model-selector__label" id="selected-model-label">Groq API</span>
@@ -41,20 +40,11 @@
                     <h1>Quantum Compute Chat</h1>
                     <p class="header__subtitle">Powered by Custom 140M Model + Groq API</p>
                 </div>
-                </div>
-                <div class="header__links">
-                    <a href="https://github.com/perez-eduardo/Quantum-Computing-Chat" target="_blank" class="header__link">
-                        <i class="fa-brands fa-github"></i> GitHub
-                    </a>
-                    <a href="#" class="header__link" onclick="openModal('models-modal'); return false;">
-                        <i class="fa-solid fa-microchip"></i> Models
-                    </a>
-                    <a href="#" class="header__link" onclick="openModal('about-modal'); return false;">
-                        <i class="fa-solid fa-circle-info"></i> About
-                    </a>
-                </div>
             </div>
             <div class="header__links">
+                <a href="https://github.com/perez-eduardo/Quantum-Computing-Chat" target="_blank" class="header__link">
+                    <i class="fa-brands fa-github"></i> GitHub
+                </a>
                 <a href="#" class="header__link" onclick="openModal('models-modal'); return false;">
                     <i class="fa-solid fa-microchip"></i> Models
                 </a>
@@ -83,7 +73,6 @@
         </div>
 
         <div class="chat" id="chat" style="display: none;">
-            <!-- Toast notification for custom model -->
             <div class="toast" id="custom-toast">
                 <i class="fa-solid fa-hourglass-half"></i>
                 <div>
@@ -128,12 +117,11 @@
         </form>
     </div>
 
-    <!-- Models Modal -->
     <div class="modal" id="models-modal" onclick="closeModalOnBackdrop(event, 'models-modal')">
         <div class="modal__content">
             <button class="modal__close" onclick="closeModal('models-modal')">&times;</button>
             <h2 class="modal__title">Available Models</h2>
-            
+
             <p class="modal__intro">Choose between two inference options based on your needs.</p>
 
             <div class="modal__models-grid">
@@ -172,14 +160,13 @@
         </div>
     </div>
 
-    <!-- About Modal -->
     <div class="modal" id="about-modal" onclick="closeModalOnBackdrop(event, 'about-modal')">
         <div class="modal__content modal__content--wide">
             <button class="modal__close" onclick="closeModal('about-modal')">&times;</button>
             <h2 class="modal__title">About This Project</h2>
-            
+
             <p class="modal__intro">
-                A full-stack ML application showcasing end-to-end machine learning engineering, 
+                A full-stack ML application showcasing end-to-end machine learning engineering,
                 from custom model training to production deployment.
             </p>
 
