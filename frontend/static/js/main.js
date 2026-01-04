@@ -351,7 +351,7 @@ function addCustomLoadingIndicator() {
             <span class="loading__dots"></span>
         </div>
         <div class="loading__subtext">
-            <i class="fa-solid fa-hourglass-half"></i> Custom model responses typically take 1-2 minutes
+            <i class="fa-solid fa-hourglass-half"></i> Custom model responses typically take 30-60 seconds
         </div>
     `;
     messages.appendChild(div);

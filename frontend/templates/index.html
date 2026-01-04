@@ -20,15 +20,15 @@
                 <div class="model-selector__dropdown" id="model-dropdown">
                     <div class="model-selector__option" onclick="selectModel('groq')">
                         <div class="model-selector__option-content">
-                            <div class="model-selector__option-name">Groq</div>
+                            <div class="model-selector__option-name">Groq API</div>
                             <div class="model-selector__option-desc">Llama 3.3 70B · 2-3 sec</div>
                         </div>
                         <i class="fa-solid fa-check model-selector__check" id="check-groq"></i>
                     </div>
                     <div class="model-selector__option" onclick="selectModel('custom')">
                         <div class="model-selector__option-content">
-                            <div class="model-selector__option-name">Custom</div>
-                            <div class="model-selector__option-desc">QuantumLLM 140M · 60-120 sec</div>
+                            <div class="model-selector__option-name">Custom Model</div>
+                            <div class="model-selector__option-desc">QuantumLLM 140M · 30-60 sec</div>
                         </div>
                         <i class="fa-solid fa-check model-selector__check" id="check-custom" style="display: none;"></i>
                     </div>
@@ -39,7 +39,7 @@
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="header__logo">
                 <div class="header__text">
                     <h1>Quantum Compute Chat</h1>
-                    <p class="header__subtitle">Powered by RAG + Custom Transformer</p>
+                    <p class="header__subtitle">Powered by Custom 140M Model + Groq API</p>
                 </div>
             </div>
             <div class="header__links">
@@ -76,7 +76,7 @@
                 <i class="fa-solid fa-hourglass-half"></i>
                 <div>
                     <strong>Custom Model Selected</strong><br>
-                    Response times are typically 60-120 seconds. The model runs on Modal's free tier GPU (T4). First query may take longer due to cold start.
+                    Response times are typically 30-60 seconds. The model runs on Modal's free tier GPU (T4). First query may take longer due to cold start.
                 </div>
             </div>
 
@@ -145,7 +145,7 @@
                         <h3>Custom (QuantumLLM 140M)</h3>
                     </div>
                     <ul class="modal__list">
-                        <li><strong>Response time:</strong> 60-120 seconds</li>
+                        <li><strong>Response time:</strong> 30-60 seconds</li>
                         <li><strong>Model:</strong> Custom 140M parameter transformer</li>
                         <li><strong>Provider:</strong> Modal GPU (T4, free tier)</li>
                         <li><strong>Best for:</strong> Demonstrating custom ML training</li>
